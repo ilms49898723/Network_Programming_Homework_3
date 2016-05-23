@@ -16,6 +16,7 @@
 #include <signal.h>
 #include <unistd.h>
 #include <cerrno>
+#include <cstring>
 #include <string>
 
 class Socket;
@@ -116,20 +117,20 @@ public:
         if ((this->fd = socket(proto, type, 0)) < 0) {
             return errno;
         }
-        if (bind(this-fd, reinterpret_cast<sockaddr*>(&sock), sizeof(sockaddr_in)) < 0) {
+        if (bind(this->fd, reinterpret_cast<sockaddr*>(&sock), sizeof(sock)) < 0) {
             return errno;
         }
         listen(this->fd, MAXLISTENQ);
     }
 
     Socket accept() {
-        socklen_t socklength = sizeof(client.sock);
         Socket client;
+        socklen_t socklength = sizeof(client.sock);
         if ((client.fd = ::accept(this->fd, reinterpret_cast<sockaddr*>(&client.sock), &socklength)) < 0) {
             return Socket();
         }
         client.port = ntohs(client.sock.sin_port);
-        client.address = inet_ntoa(client.sin_addr);
+        client.address = inet_ntoa(client.sock.sin_addr);
         return client;
     }
 
