@@ -9,11 +9,14 @@ DEP := Socket.hpp
 
 all: client server
 
-client: ${DEP}
-	${CC} ${CXXFLAGS} ${DEP} client.cpp -o client
+client: client.cpp ${DEP}
+	${CC} ${CXXFLAGS} ${DEP} $< -o $@
 
-server: ${DEP}
-	${CC} ${CXXFLAGS} ${DEP} server.cpp -o server
+server: server.cpp ${DEP}
+	${CC} ${CXXFLAGS} ${DEP} $< -o $@
+
+Socket: ${DEP}
+	${CC} ${CXXFLAGS} $< -c
 
 clean:
 	-rm -rf *.o client server
