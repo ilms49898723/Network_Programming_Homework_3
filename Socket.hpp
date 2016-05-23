@@ -39,9 +39,7 @@ public:
     }
 
     ~Socket() {
-        if (this->fd >= 0) {
-            close(this->fd);
-        }
+
     }
 
     int init(const std::string& address, const int port, const int proto = AF_INET, const int type = SOCK_STREAM) {
@@ -49,37 +47,47 @@ public:
         this->address = address;
         this->port = port;
         if ((this->fd = socket(proto, type, 0)) < 0) {
-            return errno;
+            fprintf(stderr, "Socket::init()::socket(): %s\n", strerror(errno));
+            return -1;
         }
         memset(&sock, 0, sizeof(sock));
         sock.sin_family = proto;
         sock.sin_port = htons(port);
         if (inet_pton(proto, address.c_str(), &sock.sin_addr) <= 0) {
-            return errno;
+            fprintf(stderr, "Socket::init()::inet_pton(): %s\n", strerror(errno));
+            return -1;
         }
+        return 0;
     }
 
     int connect() {
         int result = ::connect(fd, reinterpret_cast<sockaddr*>(&sock), sizeof(sock));
         if (result < 0) {
-            return errno;
+            fprintf(stderr, "Socket::connect(): %s\n", strerror(errno));
+            return -1;
         }
         return 0;
     }
 
+    void close() const {
+        if (fd >= 0) {
+            ::close(fd);
+        }
+    }
+
     const std::string& getAddress() const {
-        return this->address;
+        return address;
     }
 
     const int& getPort() const {
-        return this->port;
+        return port;
     }
 
     const int& getfd() const {
         return fd;
     }
 
-private:
+protected:
     sockaddr_in sock;
     std::string address;
     int port;
@@ -88,7 +96,7 @@ private:
 
 class ServerSocket {
 private:
-    constexpr static int MAXLISTENQ = 2048;
+    constexpr static int MAXLISTENQ = 256;
 
 public:
     ServerSocket() {
@@ -102,44 +110,53 @@ public:
     }
 
     ~ServerSocket() {
-        if (this->fd >= 0) {
-            close(this->fd);
-        }
+
     }
 
     int init(const int port, const int proto, const int type) {
         this->fd = -1;
         this->port = port;
+        if ((this->fd = socket(proto, type, 0)) < 0) {
+            fprintf(stderr, "ServerSocket::init()::socket(): %s\n", strerror(errno));
+            return -1;
+        }
         memset(&sock, 0, sizeof(sock));
         sock.sin_family = proto;
         sock.sin_addr.s_addr = htonl(INADDR_ANY);
         sock.sin_port = htons(port);
-        if ((this->fd = socket(proto, type, 0)) < 0) {
-            return errno;
-        }
         if (bind(this->fd, reinterpret_cast<sockaddr*>(&sock), sizeof(sock)) < 0) {
-            return errno;
+            fprintf(stderr, "ServerSocket::init()::bind(): %s\n", strerror(errno));
+            return -1;
         }
         listen(this->fd, MAXLISTENQ);
+        return 0;
     }
 
     Socket accept() {
         Socket client;
         socklen_t socklength = sizeof(client.sock);
         if ((client.fd = ::accept(this->fd, reinterpret_cast<sockaddr*>(&client.sock), &socklength)) < 0) {
+            fprintf(stderr, "ServerSocket()::accept(): %s\n", strerror(errno));
             return Socket();
         }
+        printf("client.fd = %d\n", client.fd);
         client.port = ntohs(client.sock.sin_port);
         client.address = inet_ntoa(client.sock.sin_addr);
         return client;
     }
 
-    const int& getPort() const {
-        return this->port;
+    void close() const {
+        if (fd >= 0) {
+            ::close(fd);
+        }
     }
 
-    const int& getFd() const {
-        return this->fd;
+    const int& getPort() const {
+        return port;
+    }
+
+    const int& getfd() const {
+        return fd;
     }
 
 private:
