@@ -2,7 +2,7 @@ CC := g++
 
 CXXFLAGS := -std=c++11 -Wall -Wextra -Os
 
-DEP := BirdUtil.hpp
+DEP := nputility.hpp UDPUtil.hpp
 
 .PHONY:
 .PHONY: all server client clean

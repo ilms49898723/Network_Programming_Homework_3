@@ -1,6 +1,12 @@
 #ifndef NETWORK_PROGRAMMING_UDPUTIL_HPP_
 #define NETWORK_PROGRAMMING_UDPUTIL_HPP_
 
+#include <cstdio>
+#include <cstring>
+#include <memory>
+#include "nputility.hpp"
+#include "npinc.h"
+
 class UDPSeqCounter {
 public:
     UDPSeqCounter() {
