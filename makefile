@@ -1,6 +1,6 @@
 CC := g++
 
-CXXFLAGS := -std=c++11 -Wall -Wextra -Os -pthread
+CXXFLAGS := -std=c++11 -Wall -Wextra -Os
 
 DEP := Socket.hpp
 
@@ -10,10 +10,10 @@ DEP := Socket.hpp
 all: client server
 
 client: client.cpp ${DEP}
-	${CC} ${CXXFLAGS} ${DEP} $< -o $@
+	${CC} ${CXXFLAGS} ${DEP} $< -o $@ -pthread
 
 server: server.cpp ${DEP}
-	${CC} ${CXXFLAGS} ${DEP} $< -o $@
+	${CC} ${CXXFLAGS} ${DEP} $< -o $@ -pthread
 
 Socket: ${DEP}
 	${CC} ${CXXFLAGS} $< -c
