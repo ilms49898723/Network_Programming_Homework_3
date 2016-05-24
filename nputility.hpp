@@ -28,4 +28,24 @@ void trimNewLine(char* src) {
     }
 }
 
+int tcpWrite(const int fd, const char* msg, const size_t n) {
+    char buffer[MAXN];
+    memset(buffer, 0, sizeof(buffer));
+    memcpy(buffer, msg, n);
+    int m = write(fd, buffer, MAXN);
+    if (m < 0) {
+        fprintf(stderr, "write: %s\n", strerror(errno));
+    }
+    return m;
+}
+
+int tcpRead(const int fd, char* buffer, const size_t n) {
+    memset(buffer, 0, sizeof(char) * n);
+    int m = read(fd, buffer, n);
+    if (m < 0) {
+        fprintf(stderr, "read: %s\n", strerror(errno));
+    }
+    return m;
+}
+
 #endif //NETWORK_PROGRAMMING_NPUTILITY_HPP

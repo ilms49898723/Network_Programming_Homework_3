@@ -2,7 +2,7 @@ CC := g++
 
 CXXFLAGS := -std=c++11 -Wall -Wextra -Os
 
-DEP := nputility.hpp UDPUtil.hpp
+DEP := nputility.hpp UDPUtil.hpp message.hpp
 
 .PHONY:
 .PHONY: all server client clean
