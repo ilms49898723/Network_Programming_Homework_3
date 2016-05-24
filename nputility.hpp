@@ -7,8 +7,8 @@
 #include <cctype>
 #include <cerrno>
 #include <string>
-#include "npinc.h"
-#include "nptype.h"
+#include "npinc.hpp"
+#include "nptype.hpp"
 
 void setSocketTimeout(const int& socketfd, const int& second, const int& millisecond) {
     timeval tv;
