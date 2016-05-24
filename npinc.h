@@ -1,5 +1,5 @@
-#ifndef NETWORK_PROGRAMMING_HOMEWORK_3_NPINC_H_
-#define NETWORK_PROGRAMMING_HOMEWORK_3_NPINC_H_
+#ifndef NETWORK_PROGRAMMING_NPINC_H_
+#define NETWORK_PROGRAMMING_NPINC_H_
 
 #include <arpa/inet.h>
 #include <netinet/in.h>
@@ -19,5 +19,5 @@
 
 constexpr int MAXN = 2048;
 
-#endif // NETWORK_PROGRAMMING_HOMEWORK_3_NPINC_H_
+#endif // NETWORK_PROGRAMMING_NPINC_H_
 
