@@ -3,9 +3,8 @@
 
 #include <string>
 
-const std::string optMAIN = std::string("[R]Register  [L]Login");
+const std::string optWELCOME = std::string("[R]Register  [L]Login");
 
-const std::string msgNEWCONNECTION = "NEWCONNECTION";
 const std::string msgREGISTER = "REGISTER";
 const std::string msgLOGIN = "LOGIN";
 const std::string msgLOGOUT = "LOGOUT";

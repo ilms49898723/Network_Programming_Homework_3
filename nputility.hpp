@@ -115,5 +115,12 @@ char* toLowerString(char* src) {
     return src;
 }
 
+char* toUpperString(char* src) {
+    for (char* ptr = src; *ptr; ++ptr) {
+        *ptr = toupper(*ptr);
+    }
+    return src;
+}
+
 #endif //NETWORK_PROGRAMMING_NPUTILITY_HPP_
 

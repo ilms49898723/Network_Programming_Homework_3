@@ -54,6 +54,7 @@ private:
             tcpWrite(fd, reply.c_str(), reply.length());
         }
         else {
+            printf("New account %s created\n", account);
             userData.insert(std::make_pair(account, Account(account, password)));
             std::string reply = msgSUCCESS;
             tcpWrite(fd, reply.c_str(), reply.length());
@@ -77,7 +78,7 @@ std::vector<std::pair<std::thread, bool>> threads;
 void threadMaintain();
 void finishThread();
 void joinAll();
-std::string getThreadInfo();
+std::string getThreadId();
 
 // server init functions
 int parseArgument(int argc, const char** argv);
@@ -144,7 +145,6 @@ void threadMaintain() {
                 }
             }
             if (flag) {
-                printf("Thread #%d finished.\n", toRemove);
                 threads.at(toRemove).first.join();
                 threads.erase(threads.begin() + toRemove);
             }
@@ -173,7 +173,7 @@ void joinAll() {
     }
 }
 
-std::string getThreadInfo() {
+std::string getThreadId() {
     std::ostringstream oss;
     oss << std::hex << std::this_thread::get_id();
     return oss.str();
@@ -193,7 +193,7 @@ int parseArgument(int argc, const char** argv) {
 }
 
 void serverFunc(const int fd, ConnectionInfo connectInfo) {
-    printf("New thread id %s started\n", getThreadInfo().c_str());
+    printf("New thread id %s started\n", getThreadId().c_str());
     printf("New connection from %s port %d\n", connectInfo.address.c_str(), connectInfo.port);
     ServerUtility serverUtility(fd);
     char buffer[MAXN];
@@ -202,16 +202,12 @@ void serverFunc(const int fd, ConnectionInfo connectInfo) {
             break;
         }
         std::string command(buffer);
-        if (command.find(msgNEWCONNECTION) == 0u) {
-            std::string reply = "Welcome!!!";
-            tcpWrite(fd, reply.c_str(), reply.length());
-        }
-        else if (command.find(msgREGISTER) == 0u) {
+        if (command.find(msgREGISTER) == 0u) {
             serverUtility.accountUtility(command);
         }
     }
     finishThread();
-    printf("Thread id %s finished\n", getThreadInfo().c_str());
+    printf("Thread id %s finished\n", getThreadId().c_str());
     printf("%s port %d disconnected\n", connectInfo.address.c_str(), connectInfo.port);
 }
 

@@ -3,6 +3,10 @@
 
 #include <string>
 
+enum class NPStage {
+    WELCOME, MAIN
+};
+
 struct ConnectionData {
     sockaddr_in sock;
     int fd;
