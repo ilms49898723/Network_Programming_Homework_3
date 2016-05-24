@@ -11,7 +11,8 @@
 #include <utility>
 #include <thread>
 #include <mutex>
-#include "npinc.h"
+#include "npinc.hpp"
+#include "nptype.hpp"
 #include "nputility.hpp"
 #include "message.hpp"
 
@@ -81,7 +82,7 @@ std::string getThreadInfo();
 // server init functions
 int parseArgument(int argc, const char** argv);
 // server main function
-void serverFunc(int fd, std::pair<std::string, int> connectInfo);
+void serverFunc(const int fd, ConnectionInfo connectInfo);
 
 int main(int argc, const char** argv) {
     threadLocker.lock();
@@ -119,10 +120,10 @@ int main(int argc, const char** argv) {
             }
         }
         if (FD_ISSET(listenfd, &fdset)) {
+            ConnectionData client = newClient(listenfd);
+            ConnectionInfo connectInfo = getConnectionInfo(client.sock);
             std::lock_guard<std::mutex> lock(threadLocker);
-            std::pair<sockaddr_in, int> client = newClient(listenfd);
-            std::pair<std::string, int> connectInfo = getConnectionInfo(client.first);
-            threads.push_back(std::make_pair(std::thread(serverFunc, client.second, connectInfo), true));
+            threads.push_back(std::make_pair(std::thread(serverFunc, client.fd, connectInfo), true));
         }
     }
     joinAll();
@@ -191,9 +192,9 @@ int parseArgument(int argc, const char** argv) {
     return port;
 }
 
-void serverFunc(int fd, std::pair<std::string, int> connectInfo) {
+void serverFunc(const int fd, ConnectionInfo connectInfo) {
     printf("New thread id %s started\n", getThreadInfo().c_str());
-    printf("New connection from %s port %d\n", connectInfo.first.c_str(), connectInfo.second);
+    printf("New connection from %s port %d\n", connectInfo.address.c_str(), connectInfo.port);
     ServerUtility serverUtility(fd);
     char buffer[MAXN];
     while (true) {
@@ -201,12 +202,16 @@ void serverFunc(int fd, std::pair<std::string, int> connectInfo) {
             break;
         }
         std::string command(buffer);
-        if (command.find(msgREGISTER) == 0u) {
+        if (command.find(msgNEWCONNECTION) == 0u) {
+            std::string reply = "Welcome!!!";
+            tcpWrite(fd, reply.c_str(), reply.length());
+        }
+        else if (command.find(msgREGISTER) == 0u) {
             serverUtility.accountUtility(command);
         }
     }
     finishThread();
     printf("Thread id %s finished\n", getThreadInfo().c_str());
-    printf("%s port %d disconnected\n", connectInfo.first.c_str(), connectInfo.second);
+    printf("%s port %d disconnected\n", connectInfo.address.c_str(), connectInfo.port);
 }
 

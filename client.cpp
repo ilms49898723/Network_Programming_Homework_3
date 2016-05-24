@@ -11,7 +11,8 @@
 #include <utility>
 #include <thread>
 #include <mutex>
-#include "npinc.h"
+#include "npinc.hpp"
+#include "nptype.hpp"
 #include "nputility.hpp"
 #include "message.hpp"
 
@@ -27,17 +28,21 @@ void joinAll();
 std::string getThreadInfo();
 
 // client init functions
-std::pair<std::string, int> parseArgument(const int& argc, const char**& argv);
+ConnectionInfo parseArgument(const int& argc, const char**& argv);
 // client main functions
-void clientFunc(const std::pair<sockaddr_in, int>& server);
+void clientFunc(const ConnectionData& server);
+void clientRecv(const int fd);
+void p2pserverInit();
+void p2pserverAccept(const int listenfd);
+void p2pserverFunc(int fd, ConnectionInfo connectInfo);
 
 int main(int argc, const char** argv) {
     threadLocker.lock();
     threads.push_back(std::make_pair(std::thread(threadMaintain), true));
     threadLocker.unlock();
     isValid = true;
-    std::pair<std::string, int> connectInfo = parseArgument(argc, argv);
-    std::pair<sockaddr_in, int> server = newConnection(connectInfo);
+    ConnectionInfo connectInfo = parseArgument(argc, argv);
+    ConnectionData server = newConnection(connectInfo);
     clientFunc(server);
     isValid = false;
     joinAll();
@@ -93,7 +98,7 @@ std::string getThreadInfo() {
     return oss.str();
 }
 
-std::pair<std::string, int> parseArgument(const int& argc, const char**& argv) {
+ConnectionInfo parseArgument(const int& argc, const char**& argv) {
     if (argc != 3) {
         fprintf(stderr, "usage %s <server address> <port>\n", argv[0]);
         exit(EXIT_FAILURE);
@@ -105,11 +110,16 @@ std::pair<std::string, int> parseArgument(const int& argc, const char**& argv) {
         fprintf(stderr, "%s: not a valid port number\n", argv[2]);
         exit(EXIT_FAILURE);
     }
-    return std::make_pair(address, port);
+    return ConnectionInfo(address, port);
 }
 
-void clientFunc(const std::pair<sockaddr_in, int>& server) {
-    const int fd = server.second;
+void clientFunc(const ConnectionData& server) {
+    threadLocker.lock();
+    threads.push_back(std::make_pair(std::thread(clientRecv, server.fd), true));
+    threadLocker.unlock();
+    const int fd = server.fd;
+    std::string msg = msgNEWCONNECTION;
+    tcpWrite(fd, msg.c_str(), msg.length());
     char buffer[MAXN];
     while (fgets(buffer, MAXN, stdin)) {
         trimNewLine(buffer);
@@ -119,5 +129,39 @@ void clientFunc(const std::pair<sockaddr_in, int>& server) {
             break;
         }
     }
+}
+
+void clientRecv(const int fd) {
+    char buffer[MAXN];
+    if (tcpRead(fd, buffer, MAXN) < 0) {
+        return;
+    }
+    printf("\n%s\n", buffer);
+}
+
+void p2pserverInit() {
+    unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
+    std::minstd_rand randomGenerator(seed);
+    int port;
+    int serverfd;
+    while (true) {
+        port = randomGenerator() % 1000 + 50000;
+        if ((serverfd = newServer(port)) >= 0) {
+            break;
+        }
+    }
+}
+
+void p2pserverAccept(const int listenfd) {
+    while (isValid) {
+        ConnectionData client = newClient(listenfd);
+        ConnectionInfo connectInfo = getConnectionInfo(client.sock);
+        std::lock_guard<std::mutex> lock(threadLocker);
+        threads.push_back(std::make_pair(std::thread(p2pserverFunc, client.fd, connectInfo), true));
+    }
+}
+
+void p2pserverFunc(int fd, ConnectionInfo connectInfo) {
+
 }
 
