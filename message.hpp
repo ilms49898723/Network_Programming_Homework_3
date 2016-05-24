@@ -3,6 +3,8 @@
 
 #include <string>
 
+const std::string optMAIN = std::string("[R]Register  [L]Login");
+
 const std::string msgNEWCONNECTION = "NEWCONNECTION";
 const std::string msgREGISTER = "REGISTER";
 const std::string msgLOGIN = "LOGIN";
