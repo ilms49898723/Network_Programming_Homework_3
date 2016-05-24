@@ -11,6 +11,7 @@
 #include <mutex>
 #include <chrono>
 #include "npinc.h"
+#include "BirdUtil.hpp"
 
 // mutex
 struct Lockers {
@@ -43,6 +44,8 @@ private:
 // user data
 std::map<std::string, Account> userData;
 
+// thread related variables
+bool isValid;
 // vector of threads
 std::vector<std::pair<std::thread, bool>> threads;
 // thread related functions
@@ -62,17 +65,49 @@ void serverFunc(int fd, std::pair<std::string, int> connectInfo);
 int main(int argc, const char** argv) {
     int port = parseArgument(argc, argv);
     int listenfd = newServer(port);
+    isValid = true;
     threads.push_back(std::make_pair(std::thread(threadMaintain), true));
-    while (true) {
-        std::pair<sockaddr_in, int> client = newConnection(listenfd);
-        std::pair<std::string, int> connectInfo = getConnectionInfo(client.first);
-        threads.push_back(std::make_pair(std::thread(serverFunc, client.second, connectInfo), true));
+    while (isValid) {
+        fd_set fdset;
+        FD_ZERO(&fdset);
+        FD_SET(fileno(stdin), &fdset);
+        FD_SET(listenfd, &fdset);
+        timeval tv;
+        tv.tv_sec = 0;
+        tv.tv_usec = 200000;
+        int nready = select(std::max(fileno(stdin), listenfd) + 1, &fdset, NULL, NULL, &tv);
+        if (nready < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            fprintf(stderr, "select(): %s\n", strerror(errno));
+            exit(EXIT_FAILURE);
+        }
+        if (FD_ISSET(fileno(stdin), &fdset)) {
+            char command[MAXN];
+            if (fgets(command, MAXN, stdin) == NULL) {
+                exit(EXIT_FAILURE);
+            }
+            trimNewLine(command);
+            if (std::string(command) == "q") {
+                isValid = false;
+                break;
+            }
+        }
+        if (FD_ISSET(listenfd, &fdset)) {
+            std::pair<sockaddr_in, int> client = newConnection(listenfd);
+            std::pair<std::string, int> connectInfo = getConnectionInfo(client.first);
+            threads.push_back(std::make_pair(std::thread(serverFunc, client.second, connectInfo), true));
+        }
+    }
+    for (auto&& item : threads) {
+        item.first.join();
     }
     return 0;
 }
 
 void threadMaintain() {
-    while (true) {
+    while (isValid) {
         bool flag = false;
         unsigned toRemove = 0xFFFFFFFFu;
         for (unsigned i = 0; i < threads.size(); ++i) {
