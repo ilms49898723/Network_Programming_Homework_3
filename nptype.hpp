@@ -7,21 +7,21 @@ enum class NPStage {
     WELCOME, MAIN
 };
 
-struct ConnectionData {
+struct ConnectData {
     sockaddr_in sock;
     int fd;
-    ConnectionData() {
+    ConnectData() {
         memset(&sock, 0, sizeof(sock));
         fd = -1;
     }
-    ConnectionData(const sockaddr_in& sock, const int fd) :
+    ConnectData(const sockaddr_in& sock, const int fd) :
         sock(sock), fd(fd) {}
 };
 
-struct ConnectionInfo {
+struct ConnectInfo {
     std::string address;
     int port;
-    ConnectionInfo(const std::string& address = "", const int port = -1) :
+    ConnectInfo(const std::string& address = "", const int port = -1) :
         address(address), port(port) {}
 };
 

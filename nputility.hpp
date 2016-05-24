@@ -43,22 +43,22 @@ int newServer(const int& port) {
     return fd;
 }
 
-ConnectionData newClient(const int& listenfd) {
+ConnectData newClient(const int& listenfd) {
     sockaddr_in client;
     socklen_t clientlength = sizeof(client);
     int clientfd;
     if ((clientfd = accept(listenfd, reinterpret_cast<sockaddr*>(&client), &clientlength)) < 0) {
         fprintf(stderr, "accept(): %s\n", strerror(errno));
-        return ConnectionData();
+        return ConnectData();
     }
-    return ConnectionData(client, clientfd);
+    return ConnectData(client, clientfd);
 }
 
-ConnectionData newConnection(const ConnectionInfo& connectInfo) {
+ConnectData newConnection(const ConnectInfo& connectInfo) {
     int fd;
     if ((fd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
         fprintf(stderr, "socket(): %s\n", strerror(errno));
-        return ConnectionData();
+        return ConnectData();
     }
     sockaddr_in server;
     memset(&server, 0, sizeof(server));
@@ -66,19 +66,19 @@ ConnectionData newConnection(const ConnectionInfo& connectInfo) {
     server.sin_port = htons(connectInfo.port);
     if (inet_pton(AF_INET, connectInfo.address.c_str(), &server.sin_addr) < 0) {
         fprintf(stderr, "inet_pton(): %s\n", strerror(errno));
-        return ConnectionData();
+        return ConnectData();
     }
     if (connect(fd, reinterpret_cast<sockaddr*>(&server), sizeof(server)) < 0) {
         fprintf(stderr, "connect(): %s\n", strerror(errno));
-        return ConnectionData();
+        return ConnectData();
     }
-    return ConnectionData(server, fd);
+    return ConnectData(server, fd);
 }
 
-ConnectionInfo getConnectionInfo(const sockaddr_in sock) {
+ConnectInfo getConnectInfo(const sockaddr_in sock) {
     std::string address = inet_ntoa(sock.sin_addr);
     int port = ntohs(sock.sin_port);
-    return ConnectionInfo(address, port);
+    return ConnectInfo(address, port);
 }
 
 int tcpWrite(const int fd, const char* msg, const size_t n) {

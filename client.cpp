@@ -16,6 +16,31 @@
 #include "nputility.hpp"
 #include "message.hpp"
 
+// thread related variables
+bool isValid;
+std::mutex threadLocker;
+// vector of threads
+std::vector<std::pair<std::thread, bool>> threads;
+// thread related functions
+void threadMaintain();
+void finishThread();
+void joinAll();
+std::string getThreadId();
+
+// client variables
+NPStage stage;
+int p2pPort;
+// client init functions
+ConnectInfo parseArgument(const int& argc, const char**& argv);
+// client main functions
+void printMessage(const std::string& msg = "");
+void clientFunc(const ConnectData& server);
+void clientRecv(const int fd);
+// p2p server for file transfer
+int p2pserverInit();
+void p2pserverAccept(const int listenfd);
+void p2pserverFunc(int fd, ConnectInfo connectInfo);
+
 class ClientUtility {
 public:
     ClientUtility(int fd) {
@@ -26,7 +51,7 @@ public:
 
     }
 
-    void accountRegister() {
+    void newAccount() {
         char account[MAXN];
         char password[MAXN];
         char confirmPassword[MAXN];
@@ -57,6 +82,39 @@ public:
         }
         std::string msg = msgREGISTER + " " + account + " " + password;
         tcpWrite(fd, msg.c_str(), msg.length());
+        char buffer[MAXN];
+        tcpRead(fd, buffer, MAXN);
+        printMessage(buffer);
+    }
+
+    void login() {
+        char account[MAXN];
+        char password[MAXN];
+        printf("Account: ");
+        if (fgets(account, MAXN, stdin) == NULL) {
+            return;
+        }
+        trimNewLine(account);
+        if (!isValidString(account)) {
+            fprintf(stderr, "Account can not contain space, tabs\n");
+            return;
+        }
+        strcpy(password, getpass("Password: "));
+        trimNewLine(password);
+        if (!isValidString(password)) {
+            fprintf(stderr, "Password can not contain space, tabs\n");
+            return;
+        }
+        std::string msg = msgLOGIN + " " + account + " " + password;
+        tcpWrite(fd, msg.c_str(), msg.length());
+        char buffer[MAXN];
+        tcpRead(fd, buffer, MAXN);
+        if (std::string(buffer).find(msgSUCCESS) == 0u) {
+            stage = NPStage::MAIN;
+            std::string info = msgUpdateConnectInfo + " " + account + " " + std::to_string(p2pPort);
+            tcpWrite(fd, info.c_str(), info.length());
+        }
+        printMessage(buffer);
     }
 
 private:
@@ -76,40 +134,15 @@ private:
     int fd;
 };
 
-// thread related variables
-bool isValid;
-std::mutex threadLocker;
-// vector of threads
-std::vector<std::pair<std::thread, bool>> threads;
-// thread related functions
-void threadMaintain();
-void finishThread();
-void joinAll();
-std::string getThreadId();
-
-// client variables
-NPStage stage;
-ConnectionInfo myself;
-// client init functions
-ConnectionInfo parseArgument(const int& argc, const char**& argv);
-// client main functions
-void printMessage(const std::string& msg = "");
-void clientFunc(const ConnectionData& server);
-void clientRecv(const int fd);
-// p2p server for file transfer
-void p2pserverInit();
-void p2pserverAccept(const int listenfd);
-void p2pserverFunc(int fd, ConnectionInfo connectInfo);
-
 int main(int argc, const char** argv) {
     threadLocker.lock();
     threads.push_back(std::make_pair(std::thread(threadMaintain), true));
     threadLocker.unlock();
     isValid = true;
     stage = NPStage::WELCOME;
-    ConnectionInfo connectInfo = parseArgument(argc, argv);
-    ConnectionData server = newConnection(connectInfo);
-    p2pserverInit();
+    ConnectInfo connectInfo = parseArgument(argc, argv);
+    ConnectData server = newConnection(connectInfo);
+    p2pPort = p2pserverInit();
     clientFunc(server);
     joinAll();
     return 0;
@@ -163,7 +196,7 @@ std::string getThreadId() {
     return oss.str();
 }
 
-ConnectionInfo parseArgument(const int& argc, const char**& argv) {
+ConnectInfo parseArgument(const int& argc, const char**& argv) {
     if (argc != 3) {
         fprintf(stderr, "usage %s <server address> <port>\n", argv[0]);
         exit(EXIT_FAILURE);
@@ -175,7 +208,7 @@ ConnectionInfo parseArgument(const int& argc, const char**& argv) {
         fprintf(stderr, "%s: not a valid port number\n", argv[2]);
         exit(EXIT_FAILURE);
     }
-    return ConnectionInfo(address, port);
+    return ConnectInfo(address, port);
 }
 
 void printMessage(const std::string& msg) {
@@ -187,15 +220,15 @@ void printMessage(const std::string& msg) {
         case 0: // WELCOME
             printf("%s\n", optWELCOME.c_str());
             break;
+        case 1: // MAIN
+            printf("%s\n", optMAIN.c_str());
+            break;
         default:
             break;
     }
 }
 
-void clientFunc(const ConnectionData& server) {
-    threadLocker.lock();
-    threads.push_back(std::make_pair(std::thread(clientRecv, server.fd), true));
-    threadLocker.unlock();
+void clientFunc(const ConnectData& server) {
     ClientUtility clientUtility(server.fd);
     char buffer[MAXN];
     printMessage("Welcome!!!");
@@ -212,10 +245,10 @@ void clientFunc(const ConnectionData& server) {
         switch (static_cast<int>(stage)) {
             case 0: // WELCOME
                 if (command == "R") {
-                    clientUtility.accountRegister();
+                    clientUtility.newAccount();
                 }
                 else if (command == "L") {
-
+                    clientUtility.login();
                 }
                 break;
             default:
@@ -224,34 +257,7 @@ void clientFunc(const ConnectionData& server) {
     }
 }
 
-void clientRecv(const int fd) {
-    while (isValid) {
-        fd_set fdset;
-        FD_ZERO(&fdset);
-        FD_SET(fd, &fdset);
-        timeval tv;
-        tv.tv_sec = 0;
-        tv.tv_usec = 200000;
-        int nready = select(fd + 1, &fdset, NULL, NULL, &tv);
-        if (nready < 0) {
-            if (errno == EINTR) {
-                continue;
-            }
-            fprintf(stderr, "select: %s\n", strerror(errno));
-            exit(EXIT_FAILURE);
-        }
-        if (FD_ISSET(fd, &fdset)) {
-            char buffer[MAXN];
-            if (tcpRead(fd, buffer, MAXN) < 0) {
-                break;
-            }
-            printMessage(buffer);
-        }
-    }
-    finishThread();
-}
-
-void p2pserverInit() {
+int p2pserverInit() {
     unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
     std::minstd_rand randomGenerator(seed);
     int port;
@@ -264,6 +270,7 @@ void p2pserverInit() {
     }
     std::lock_guard<std::mutex> lock(threadLocker);
     threads.push_back(std::make_pair(std::thread(p2pserverAccept, serverfd), true));
+    return port;
 }
 
 void p2pserverAccept(const int listenfd) {
@@ -283,8 +290,8 @@ void p2pserverAccept(const int listenfd) {
             exit(EXIT_FAILURE);
         }
         if (FD_ISSET(listenfd, &fdset)) {
-            ConnectionData client = newClient(listenfd);
-            ConnectionInfo connectInfo = getConnectionInfo(client.sock);
+            ConnectData client = newClient(listenfd);
+            ConnectInfo connectInfo = getConnectInfo(client.sock);
             std::lock_guard<std::mutex> lock(threadLocker);
             threads.push_back(std::make_pair(std::thread(p2pserverFunc, client.fd, connectInfo), true));
         }
@@ -292,7 +299,7 @@ void p2pserverAccept(const int listenfd) {
     finishThread();
 }
 
-void p2pserverFunc(int fd, ConnectionInfo connectInfo) {
+void p2pserverFunc(int fd, ConnectInfo connectInfo) {
     finishThread();
 }
 

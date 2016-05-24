@@ -20,6 +20,7 @@
 struct Account {
     std::string account;
     std::string password;
+    ConnectInfo connectInfo;
     bool isOnline;
     Account(const std::string& account = "", const std::string& password = "", const bool isOnline = false) :
         account(account), password(password), isOnline(isOnline) {}
@@ -28,8 +29,9 @@ struct Account {
 // server utility
 class ServerUtility {
 public:
-    ServerUtility(int fd) {
+    ServerUtility(int fd, ConnectInfo connectInfo) {
         this->fd = fd;
+        this->connectInfo = connectInfo;
     }
 
     ~ServerUtility() {
@@ -40,6 +42,12 @@ public:
         std::lock_guard<std::mutex> lock(accountLocker);
         if (msg.find(msgREGISTER) == 0u) {
             accountRegister(msg);
+        }
+        else if (msg.find(msgLOGIN) == 0u) {
+            accountLogin(msg);
+        }
+        else if (msg.find(msgUpdateConnectInfo) == 0u) {
+            accountUpdateConnectInfo(msg);
         }
     }
 
@@ -61,8 +69,34 @@ private:
         }
     }
 
+    // LOGIN account password
+    void accountLogin(const std::string& msg) {
+        char account[MAXN];
+        char password[MAXN];
+        sscanf(msg.c_str() + msgLOGIN.length(), "%s%s", account, password);
+        if (!userData.count(account) || userData.at(account).password != std::string(password)) {
+            std::string reply = msgFAIL + " Invalid account or password";
+            tcpWrite(fd, reply.c_str(), reply.length());
+        }
+        else {
+            userData[account].isOnline = true;
+            std::string reply = msgSUCCESS;
+            tcpWrite(fd, reply.c_str(), reply.length());
+        }
+    }
+
+    // UPDATECONNECTIONINFO account port
+    void accountUpdateConnectInfo(const std::string& msg) {
+        char account[MAXN];
+        int port;
+        sscanf(msg.c_str() + msgUpdateConnectInfo.length(), "%s%d", account, &port);
+        userData[account].connectInfo = ConnectInfo(connectInfo.address, port);
+        printf("Account %s connection info updated. IP %s port %d\n", account, connectInfo.address.c_str(), port);
+    }
+
 private:
     std::mutex accountLocker;
+    ConnectInfo connectInfo;
     int fd;
 
 private:
@@ -83,7 +117,7 @@ std::string getThreadId();
 // server init functions
 int parseArgument(int argc, const char** argv);
 // server main function
-void serverFunc(const int fd, ConnectionInfo connectInfo);
+void serverFunc(const int fd, ConnectInfo connectInfo);
 
 int main(int argc, const char** argv) {
     threadLocker.lock();
@@ -121,8 +155,8 @@ int main(int argc, const char** argv) {
             }
         }
         if (FD_ISSET(listenfd, &fdset)) {
-            ConnectionData client = newClient(listenfd);
-            ConnectionInfo connectInfo = getConnectionInfo(client.sock);
+            ConnectData client = newClient(listenfd);
+            ConnectInfo connectInfo = getConnectInfo(client.sock);
             std::lock_guard<std::mutex> lock(threadLocker);
             threads.push_back(std::make_pair(std::thread(serverFunc, client.fd, connectInfo), true));
         }
@@ -192,10 +226,10 @@ int parseArgument(int argc, const char** argv) {
     return port;
 }
 
-void serverFunc(const int fd, ConnectionInfo connectInfo) {
+void serverFunc(const int fd, ConnectInfo connectInfo) {
     printf("New thread id %s started\n", getThreadId().c_str());
     printf("New connection from %s port %d\n", connectInfo.address.c_str(), connectInfo.port);
-    ServerUtility serverUtility(fd);
+    ServerUtility serverUtility(fd, connectInfo);
     char buffer[MAXN];
     while (true) {
         if (tcpRead(fd, buffer, MAXN) <= 0) {
@@ -203,6 +237,12 @@ void serverFunc(const int fd, ConnectionInfo connectInfo) {
         }
         std::string command(buffer);
         if (command.find(msgREGISTER) == 0u) {
+            serverUtility.accountUtility(command);
+        }
+        else if (command.find(msgLOGIN) == 0u) {
+            serverUtility.accountUtility(command);
+        }
+        else if (command.find(msgUpdateConnectInfo) == 0u) {
             serverUtility.accountUtility(command);
         }
     }
