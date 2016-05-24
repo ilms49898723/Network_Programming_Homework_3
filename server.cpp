@@ -3,6 +3,7 @@
 #include <cstdlib>
 #include <string>
 #include <sstream>
+#include <algorithm>
 #include <deque>
 #include <vector>
 #include <map>
@@ -11,7 +12,8 @@
 #include <mutex>
 #include <chrono>
 #include "npinc.h"
-#include "BirdUtil.hpp"
+#include "nputility.hpp"
+#include "message.hpp"
 
 // mutex
 struct Lockers {
@@ -23,6 +25,8 @@ struct Account {
     std::string account;
     std::string password;
     bool isOnline;
+    Account(const std::string& account, const std::string& password, const bool isOnline = false) :
+        account(account), password(password), isOnline(isOnline) {}
 };
 
 // server utility
@@ -36,13 +40,37 @@ public:
 
     }
 
+    void accountUtility(const std::string& msg) {
+        std::lock_guard<std::mutex> lock(lockers.accountLocker);
+        if (msg.find(msgREGISTER) == 0u) {
+            accountRegister(msg);
+        }
+    }
+
+private:
+    // REGISTER account password
+    void accountRegister(const std::string& msg) {
+        char account[MAXN];
+        char password[MAXN];
+        sscanf(msg.c_str() + msgREGISTER.length(), "%s%s", account, password);
+        if (userData.count(account)) {
+            std::string reply = msgFAIL + " Account already exists";
+            tcpWrite(fd, reply.c_str(), reply.length());
+        }
+        else {
+            userData.insert(std::make_pair(account, Account(account, password)));
+            std::string reply = msgSUCCESS;
+            tcpWrite(fd, reply.c_str(), reply.length());
+        }
+    }
+
 private:
     Lockers lockers;
     int fd;
-};
 
-// user data
-std::map<std::string, Account> userData;
+private:
+    std::map<std::string, Account> userData;
+};
 
 // thread related variables
 bool isValid;
@@ -50,7 +78,7 @@ bool isValid;
 std::vector<std::pair<std::thread, bool>> threads;
 // thread related functions
 void threadMaintain();
-void endThread();
+void finishThread();
 std::string getThreadInfo();
 
 // server init functions
@@ -117,7 +145,7 @@ void threadMaintain() {
             }
         }
         if (flag) {
-            printf("Thread #%d finished. Removed.\n", toRemove);
+            printf("Thread #%d finished.\n", toRemove);
             threads.at(toRemove).first.join();
             threads.erase(threads.begin() + toRemove);
         }
@@ -125,7 +153,7 @@ void threadMaintain() {
     }
 }
 
-void endThread() {
+void finishThread() {
     for (auto&& item : threads) {
         if (std::this_thread::get_id() == item.first.get_id()) {
             item.second = false;
@@ -193,26 +221,19 @@ void serverFunc(int fd, std::pair<std::string, int> connectInfo) {
     printf("New thread id %s started\n", getThreadInfo().c_str());
     printf("New connection from %s port %d\n", connectInfo.first.c_str(), connectInfo.second);
     ServerUtility serverUtility(fd);
+    int n;
     char buffer[MAXN];
     while (true) {
-        int n;
-        if ((n = read(fd, buffer, MAXN)) == 0) {
+        if (tcpRead(fd, buffer, MAXN) <= 0) {
             break;
         }
-        if (n < 0) {
-            fprintf(stderr, "%s", strerror(errno));
-            break;
-        }
-        printf("%s", buffer);
-        if ((n = write(fd, buffer, MAXN)) == 0) {
-            break;
-        }
-        if (n < 0) {
-            fprintf(stderr, "%s", strerror(errno));
-            break;
+        std::string command(buffer);
+        if (command.find(msgREGISTER) == 0u) {
+            serverUtility.accountUtility(command);
         }
     }
-    endThread();
+    finishThread();
     printf("Thread id %s finished\n", getThreadInfo().c_str());
     printf("%s port %d disconnected\n", connectInfo.first.c_str(), connectInfo.second);
 }
+
