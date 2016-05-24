@@ -1,41 +1,96 @@
 #include <cstdio>
 #include <cstring>
 #include <cstdlib>
+#include <chrono>
 #include <string>
+#include <sstream>
+#include <algorithm>
 #include <deque>
 #include <vector>
 #include <map>
 #include <utility>
 #include <thread>
 #include <mutex>
-#include <chrono>
 #include "npinc.h"
+#include "nputility.hpp"
+#include "message.hpp"
 
-void clientFunc(const std::pair<sockaddr_in, int>& server);
+// thread related variables
+bool isValid;
+std::mutex threadLocker;
+// vector of threads
+std::vector<std::pair<std::thread, bool>> threads;
+// thread related functions
+void threadMaintain();
+void finishThread();
+void joinAll();
+std::string getThreadInfo();
+
+// client init functions
 std::pair<std::string, int> parseArgument(const int& argc, const char**& argv);
-std::pair<sockaddr_in, int> newConnection(const std::pair<std::string, int>& connectInfo);
+// client main functions
+void clientFunc(const std::pair<sockaddr_in, int>& server);
 
 int main(int argc, const char** argv) {
+    threadLocker.lock();
+    threads.push_back(std::make_pair(std::thread(threadMaintain), true));
+    threadLocker.unlock();
+    isValid = true;
     std::pair<std::string, int> connectInfo = parseArgument(argc, argv);
     std::pair<sockaddr_in, int> server = newConnection(connectInfo);
     clientFunc(server);
+    isValid = false;
+    joinAll();
     return 0;
 }
 
-void clientFunc(const std::pair<sockaddr_in, int>& server) {
-    const int fd = server.second;
-    char buffer[MAXN];
-    while (fgets(buffer, MAXN, stdin)) {
-        if (write(fd, buffer, MAXN) < 0) {
-            fprintf(stderr, "%s\n", strerror(errno));
-            break;
+void threadMaintain() {
+    while (isValid) {
+        threadLocker.lock();
+        bool flag = true;
+        while (flag) {
+            flag = false;
+            unsigned toRemove = 0xFFFFFFFFu;
+            for (unsigned i = 0; i < threads.size(); ++i) {
+                if (!threads.at(i).second) {
+                    flag = true;
+                    toRemove = i;
+                }
+            }
+            if (flag) {
+                printf("Thread #%d finished.\n", toRemove);
+                threads.at(toRemove).first.join();
+                threads.erase(threads.begin() + toRemove);
+            }
         }
-        if (read(fd, buffer, MAXN) < 0) {
-            fprintf(stderr, "%s\n", strerror(errno));
-            break;
-        }
-        printf("recv %s", buffer);
+        threadLocker.unlock();
+        std::this_thread::sleep_for(std::chrono::seconds(2));
     }
+}
+
+void finishThread() {
+    std::lock_guard<std::mutex> lock(threadLocker);
+    for (auto& item : threads) {
+        if (std::this_thread::get_id() == item.first.get_id()) {
+            item.second = false;
+            break;
+        }
+    }
+}
+
+void joinAll() {
+    isValid = false;
+    for (auto& item : threads) {
+        if (item.first.joinable()) {
+            item.first.join();
+        }
+    }
+}
+
+std::string getThreadInfo() {
+    std::ostringstream oss;
+    oss << std::hex << std::this_thread::get_id();
+    return oss.str();
 }
 
 std::pair<std::string, int> parseArgument(const int& argc, const char**& argv) {
@@ -53,24 +108,16 @@ std::pair<std::string, int> parseArgument(const int& argc, const char**& argv) {
     return std::make_pair(address, port);
 }
 
-std::pair<sockaddr_in, int> newConnection(const std::pair<std::string, int>& connectInfo) {
-    int fd;
-    if ((fd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-        fprintf(stderr, "socket(): %s\n", strerror(errno));
-        exit(EXIT_FAILURE);
+void clientFunc(const std::pair<sockaddr_in, int>& server) {
+    const int fd = server.second;
+    char buffer[MAXN];
+    while (fgets(buffer, MAXN, stdin)) {
+        trimNewLine(buffer);
+        toLowerString(buffer);
+        std::string command(buffer);
+        if (command == "q" || command == "quit") {
+            break;
+        }
     }
-    sockaddr_in server;
-    memset(&server, 0, sizeof(server));
-    server.sin_family = AF_INET;
-    server.sin_port = htons(connectInfo.second);
-    if (inet_pton(AF_INET, connectInfo.first.c_str(), &server.sin_addr) < 0) {
-        fprintf(stderr, "inet_pton(): %s\n", strerror(errno));
-        exit(EXIT_FAILURE);
-    }
-    if (connect(fd, reinterpret_cast<sockaddr*>(&server), sizeof(server)) < 0) {
-        fprintf(stderr, "connect(): %s\n", strerror(errno));
-        exit(EXIT_FAILURE);
-    }
-    return std::make_pair(server, fd);
 }
 

@@ -4,6 +4,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <cctype>
 #include <cerrno>
 #include <string>
 #include "npinc.h"
@@ -22,10 +23,61 @@ void setSocketTimeout(const int& socketfd, const int& second, const int& millise
     }
 }
 
-void trimNewLine(char* src) {
-    if (src[strlen(src) - 1] == '\n') {
-        src[strlen(src) - 1] = '\0';
+int newServer(const int& port) {
+    int fd;
+    if ((fd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+        fprintf(stderr, "socket(): %s\n", strerror(errno));
+        exit(EXIT_FAILURE);
     }
+    sockaddr_in server;
+    memset(&server, 0, sizeof(server));
+    server.sin_family = AF_INET;
+    server.sin_port = htons(port);
+    server.sin_addr.s_addr = htonl(INADDR_ANY);
+    if (bind(fd, reinterpret_cast<sockaddr*>(&server), sizeof(server)) < 0) {
+        fprintf(stderr, "bind(): %s\n", strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+    listen(fd, 2048);
+    return fd;
+}
+
+std::pair<sockaddr_in, int> newClient(const int& listenfd) {
+    sockaddr_in client;
+    socklen_t clientlength = sizeof(client);
+    int clientfd;
+    if ((clientfd = accept(listenfd, reinterpret_cast<sockaddr*>(&client), &clientlength)) < 0) {
+        fprintf(stderr, "accept(): %s\n", strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+    return std::make_pair(client, clientfd);
+}
+
+std::pair<sockaddr_in, int> newConnection(const std::pair<std::string, int>& connectInfo) {
+    int fd;
+    if ((fd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+        fprintf(stderr, "socket(): %s\n", strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+    sockaddr_in server;
+    memset(&server, 0, sizeof(server));
+    server.sin_family = AF_INET;
+    server.sin_port = htons(connectInfo.second);
+    if (inet_pton(AF_INET, connectInfo.first.c_str(), &server.sin_addr) < 0) {
+        fprintf(stderr, "inet_pton(): %s\n", strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+    if (connect(fd, reinterpret_cast<sockaddr*>(&server), sizeof(server)) < 0) {
+        fprintf(stderr, "connect(): %s\n", strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+    return std::make_pair(server, fd);
+}
+
+std::pair<std::string, int> getConnectionInfo(const sockaddr_in sock) {
+    std::string address = inet_ntoa(sock.sin_addr);
+    int port = ntohs(sock.sin_port);
+    return std::make_pair(address, port);
 }
 
 int tcpWrite(const int fd, const char* msg, const size_t n) {
@@ -46,6 +98,20 @@ int tcpRead(const int fd, char* buffer, const size_t n) {
         fprintf(stderr, "read: %s\n", strerror(errno));
     }
     return m;
+}
+
+char* trimNewLine(char* src) {
+    if (src[strlen(src) - 1] == '\n') {
+        src[strlen(src) - 1] = '\0';
+    }
+    return src;
+}
+
+char* toLowerString(char* src) {
+    for (char* ptr = src; *ptr; ++ptr) {
+        *ptr = tolower(*ptr);
+    }
+    return src;
 }
 
 #endif //NETWORK_PROGRAMMING_NPUTILITY_HPP
