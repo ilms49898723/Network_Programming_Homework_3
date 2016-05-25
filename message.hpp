@@ -6,7 +6,7 @@
 const std::string optWELCOME = std::string("[L]Login     [R]Register    [Q]Quit");
 const std::string optMAIN = std::string("[SU]Show User         [SF]Show File List  [SE]Send Your File List\n") +
                             std::string("[R]Request File List  [U]Upload           [D]Download\n") +
-                            std::string("[T]Talk               [L]Logout           [DA]Delete Account");
+                            std::string("[C]Chat               [L]Logout           [DA]Delete Account");
 
 const std::string msgREGISTER = "REGISTER";
 const std::string msgLOGIN = "LOGIN";
@@ -18,6 +18,9 @@ const std::string msgUPDATEFILELIST = "UPDATEFILELIST";
 
 const std::string msgSHOWUSER = "SHOWUSER";
 const std::string msgSHOWFILELIST = "SHOWFILELIST";
+
+const std::string msgCHATREQUEST = "CHATREQUEST";
+const std::string msgMESSAGE = "MESSAGE";
 
 const std::string msgSUCCESS = "Success!";
 const std::string msgFAIL = "Failed!";

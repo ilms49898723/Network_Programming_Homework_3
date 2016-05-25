@@ -58,6 +58,9 @@ public:
         else if (msg.find(msgSHOWUSER) == 0u) {
             accountShowInfo(msg, data);
         }
+        else if (msg.find(msgCHATREQUEST) == 0u) {
+            accountSendConnectInfo(msg, data);
+        }
     }
 
     void fileListUtility(const std::string& msg, ServerData& data) {
@@ -175,6 +178,26 @@ private:
             }
         }
         tcpWrite(fd, reply.c_str(), reply.length());
+    }
+
+    // CHATREQUEST account
+    void accountSendConnectInfo(const std::string& msg, ServerData& data) {
+        char account[MAXN];
+        sscanf(msg.c_str() + msgCHATREQUEST.length(), "%s", account);
+        if (!data.userData.count(account)) {
+            std::string reply = msgFAIL + " User not found";
+            tcpWrite(fd, reply.c_str(), reply.length());
+        }
+        else if (!data.userData[account].isOnline) {
+            std::string reply = msgFAIL + " User is not online";
+            tcpWrite(fd, reply.c_str(), reply.length());
+        }
+        else {
+            std::string reply = msgSUCCESS;
+            reply += " " + data.userData[account].connectInfo.address;
+            reply += " " + std::to_string(data.userData[account].connectInfo.port);
+            tcpWrite(fd, reply.c_str(), reply.length());
+        }
     }
 
     // UPDATEFILELIST [files ...]

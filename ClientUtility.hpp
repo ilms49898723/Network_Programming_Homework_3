@@ -24,16 +24,24 @@
 
 class ClientUtility {
 public:
-    ClientUtility(int fd, int p2pPort, int row, int col) {
-        this->fd = fd;
-        this->p2pPort = p2pPort;
-        this->terminalRow = row;
-        this->terminalCol = col;
+    ClientUtility() {
+        this->fd = -1;
+        this->p2pPort = -1;
+        this->terminalRow = -1;
+        this->terminalCol = -1;
         stage = NPStage::WELCOME;
     }
 
     ~ClientUtility() {
 
+    }
+
+    void init(int fd, int p2pPort, int row, int col) {
+        this->fd = fd;
+        this->p2pPort = p2pPort;
+        this->terminalRow = row;
+        this->terminalCol = col;
+        stage = NPStage::WELCOME;
     }
 
     void printMessage(const std::string& msg, const bool isErrorMsg = false) {
@@ -193,7 +201,7 @@ public:
                 continue;
             }
             info += std::string(" ") + std::string(dirst->d_name) + std::string(" ") + std::to_string(st.st_size);
-            msg += "    " + std::string(dirst->d_name) + "\n";
+            msg += "    " + std::string(dirst->d_name) + " (" + std::to_string(st.st_size) + " bytes)\n";
         }
         closedir(dir);
         tcpWrite(fd, info.c_str(), info.length());
@@ -214,6 +222,65 @@ public:
         char buffer[MAXN];
         tcpRead(fd, buffer, MAXN);
         printMessage(buffer);
+    }
+
+    void chat() {
+        char account[MAXN];
+        printf("Account: ");
+        if (fgets(account, MAXN, stdin) == NULL) {
+            printPrevious();
+            return;
+        }
+        trimNewLine(account);
+        std::string info = msgCHATREQUEST + " " + account;
+        tcpWrite(fd, info.c_str(), info.length());
+        char buffer[MAXN];
+        tcpRead(fd, buffer, MAXN);
+        if (std::string(buffer).find(msgSUCCESS) != 0u) {
+            printMessage(buffer, true);
+            return;
+        }
+        printMessage(buffer);
+        char address[MAXN];
+        int port;
+        sscanf(buffer + msgSUCCESS.length(), "%s%d", address, &port);
+        ConnectData target = newConnection(ConnectInfo(address, port));
+        if (target.fd < 0) {
+            printMessage("Connect Error", true);
+            return;
+        }
+        flushScreen();
+        printf("Chat to %s\n", account);
+        printf("Press ^D to exit\n");
+        printSplitLine();
+        while (true) {
+            fd_set fdset;
+            FD_ZERO(&fdset);
+            FD_SET(fileno(stdin), &fdset);
+            timeval tv;
+            tv.tv_sec = 0;
+            tv.tv_usec = 200000;
+            int nready = select(fileno(stdin) + 1, &fdset, NULL, NULL, &tv);
+            if (nready < 0) {
+                if (errno == EINTR) {
+                    continue;
+                }
+                printMessage("select: %s\n", strerror(errno));
+                break;
+            }
+            if (FD_ISSET(fileno(stdin), &fdset)) {
+                char content[MAXN];
+                if (fgets(content, MAXN, stdin) == NULL) {
+                    break;
+                }
+                trimNewLine(content);
+                std::string msg = msgMESSAGE + " " + nowAccount + " " + content;
+                tcpWrite(target.fd, msg.c_str(), msg.length());
+            }
+            flushMessage(account);
+        }
+        printMessage("Exited");
+        close(target.fd);
     }
 
 public:
@@ -259,7 +326,34 @@ private:
         return true;
     }
 
+public:
+    void pushMessage(const std::string& account, const std::string& msg) {
+        std::lock_guard<std::mutex> lock(clientData.msgLocker);
+        clientData.msg[account].push_back(msg);
+    }
+
 private:
+    void flushMessage(const std::string target) {
+        if (!msgIsEmpty(target)) {
+            printLog("%s: %s\n", target.c_str(), popMessage(target).c_str());
+        }
+    }
+
+    bool msgIsEmpty(const std::string& account) {
+        std::lock_guard<std::mutex> lock(clientData.msgLocker);
+        return clientData.msg[account].empty();
+    }
+
+    std::string popMessage(const std::string& account) {
+        std::lock_guard<std::mutex> lock(clientData.msgLocker);
+        std::string ret = clientData.msg[account].front();
+        clientData.msg[account].pop_front();
+        return ret;
+    }
+
+
+private:
+    ClientData clientData;
     std::string nowAccount;
     std::string lastmsg;
     NPStage stage;

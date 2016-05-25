@@ -23,15 +23,16 @@
 // client variables
 winsize ws;
 int p2pPort;
+ClientUtility clientUtility;
 // client init functions
 ConnectInfo parseArgument(const int& argc, const char**& argv);
 // client main functions
 void clientFunc(const ConnectData& server);
 void clientRecv(const int fd);
-// p2p server for file transfer
-int p2pserverInit();
-void p2pserverAccept(const int listenfd);
-void p2pserverFunc(int fd, ConnectInfo connectInfo);
+// p2p server for file transfer or chat
+int p2pServerInit();
+void p2pServerAccept(const int listenfd);
+void p2pServerFunc(const int fd);
 
 int main(int argc, const char** argv) {
     lb::setLogEnabled(false);
@@ -44,7 +45,7 @@ int main(int argc, const char** argv) {
         lb::joinAll();
         return EXIT_FAILURE;
     }
-    p2pPort = p2pserverInit();
+    p2pPort = p2pServerInit();
     clientFunc(server);
     lb::joinAll();
     return EXIT_SUCCESS;
@@ -66,17 +67,22 @@ ConnectInfo parseArgument(const int& argc, const char**& argv) {
 }
 
 void clientFunc(const ConnectData& server) {
-    ClientUtility clientUtility(server.fd, p2pPort, ws.ws_row, ws.ws_col);
+    clientUtility.init(server.fd, p2pPort, ws.ws_row, ws.ws_col);
     char buffer[MAXN];
     clientUtility.setStage(NPStage::WELCOME);
     clientUtility.printMessage("Welcome!");
     while (true) {
         if (fgets(buffer, MAXN, stdin) == NULL) {
-            break;
+            clientUtility.printPrevious();
+            continue;
         }
         trimNewLine(buffer);
         toUpperString(buffer);
         std::string command(buffer);
+        if (command == "") {
+            clientUtility.printPrevious();
+            continue;
+        }
         if (command == "Q" || command == "QUIT") {
             clientUtility.logout();
             printf("\n");
@@ -110,6 +116,9 @@ void clientFunc(const ConnectData& server) {
                 else if (command == "SE") {
                     clientUtility.updateFileList();
                 }
+                else if (command == "C") {
+                    clientUtility.chat();
+                }
                 else {
                     clientUtility.printMessage("Invalid command", true);
                 }
@@ -120,7 +129,7 @@ void clientFunc(const ConnectData& server) {
     close(server.fd);
 }
 
-int p2pserverInit() {
+int p2pServerInit() {
     unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
     std::minstd_rand randomGenerator(seed);
     int port;
@@ -131,11 +140,11 @@ int p2pserverInit() {
             break;
         }
     }
-    lb::pushThread(std::thread(p2pserverAccept, serverfd));
+    lb::pushThread(std::thread(p2pServerAccept, serverfd));
     return port;
 }
 
-void p2pserverAccept(const int listenfd) {
+void p2pServerAccept(const int listenfd) {
     while (lb::isValid()) {
         fd_set fdset;
         FD_ZERO(&fdset);
@@ -153,14 +162,29 @@ void p2pserverAccept(const int listenfd) {
         }
         if (FD_ISSET(listenfd, &fdset)) {
             ConnectData client = newClient(listenfd);
-            ConnectInfo connectInfo = getConnectInfo(client.sock);
-            lb::pushThread(std::thread(p2pserverFunc, client.fd, connectInfo));
+            lb::pushThread(std::thread(p2pServerFunc, client.fd));
         }
     }
+    close(listenfd);
     lb::finishThread();
 }
 
-void p2pserverFunc(int fd, ConnectInfo connectInfo) {
+void p2pServerFunc(const int fd) {
+    char buffer[MAXN];
+    while (lb::isValid()) {
+        if (tcpRead(fd, buffer, MAXN) <= 0) {
+            break;
+        }
+        std::string command(buffer);
+        if (command.find(msgMESSAGE) == 0u) {
+            char account[MAXN];
+            sscanf(command.c_str() + msgMESSAGE.length(), "%s", account);
+            unsigned offset = msgMESSAGE.length() + 1 + std::string(account).length() + 1;
+            std::string content(command.c_str() + offset);
+            clientUtility.pushMessage(account, content);
+        }
+    }
+    close(fd);
     lb::finishThread();
 }
 

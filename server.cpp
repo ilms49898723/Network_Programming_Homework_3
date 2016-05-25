@@ -56,10 +56,13 @@ int main(int argc, const char** argv) {
         if (FD_ISSET(fileno(stdin), &fdset)) {
             char command[MAXN];
             if (fgets(command, MAXN, stdin) == NULL) {
-                exit(EXIT_FAILURE);
+                continue;
             }
             trimNewLine(command);
             toLowerString(command);
+            if (std::string(command) == "") {
+                continue;
+            }
             if (std::string(command) == "q" || std::string(command) == "quit") {
                 lb::setValid(false);
                 break;
@@ -71,6 +74,7 @@ int main(int argc, const char** argv) {
             lb::pushThread(std::thread(serverFunc, client.fd, connectInfo));
         }
     }
+    close(listenfd);
     lb::joinAll();
     return EXIT_SUCCESS;
 }
@@ -103,7 +107,8 @@ void serverFunc(const int fd, ConnectInfo connectInfo) {
             command.find(msgLOGOUT) == 0u ||
             command.find(msgDELETEACCOUNT) == 0u ||
             command.find(msgUPDATECONNECTINFO) == 0u ||
-            command.find(msgSHOWUSER) == 0u) {
+            command.find(msgSHOWUSER) == 0u ||
+            command.find(msgCHATREQUEST) == 0u) {
             serverUtility.accountUtility(command, serverData);
         }
         else if (command.find(msgUPDATEFILELIST) == 0u ||

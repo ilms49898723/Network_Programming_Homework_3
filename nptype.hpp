@@ -45,11 +45,20 @@ struct FileInfo {
         filename(filename), size(size) {}
 };
 
+struct MessageBuffer {
+    std::map<std::string, std::deque<std::string>> msgbuf;
+};
+
 struct ServerData {
     std::mutex accountLocker;
     std::mutex fileListLocker;
     std::map<std::string, Account> userData;
     std::map<std::string, FileInfo> fileData;
+};
+
+struct ClientData {
+    std::mutex msgLocker;
+    std::map<std::string, std::deque<std::string>> msg;
 };
 
 #endif // NETWORK_PROGRAMMING_NPTYPE_HPP_
