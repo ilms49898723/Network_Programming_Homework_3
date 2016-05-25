@@ -4,7 +4,7 @@
 #include <cstdio>
 #include <sstream>
 #include <chrono>
-#include <vector>
+#include <list>
 #include <utility>
 #include <thread>
 #include <mutex>
@@ -13,19 +13,26 @@
 namespace lb {
 
 // thread related variables
-static bool valid;
+bool valid;
+bool logEnabled;
 std::mutex threadLocker;
 // vector of threads
-std::vector<std::pair<std::thread, bool>> threads;
-// valid getter, setter
+std::list<std::pair<std::thread, bool>> threads;
+// getter, setter
+void setLogEnabled(const bool val);
 void setValid(const bool val);
 bool isValid();
 // thread related functions
 void threadManageInit();
 void threadMaintain();
+void pushThread(std::thread&& item);
 void finishThread();
-void joinAll(bool logEnabled = true);
+void joinAll();
 std::string getThreadIdStr(const std::thread::id id);
+
+void setLogEnabled(const bool val) {
+    logEnabled = val;
+}
 
 void setValid(const bool val) {
     valid = val;
@@ -37,15 +44,7 @@ bool isValid() {
 
 void threadManageInit() {
     valid = true;
-    threadLocker.lock();
-    threads.push_back(std::make_pair(std::thread(threadMaintain), true));
-    threadLocker.unlock();
-}
-
-void pushThread(std::thread&& item) {
-    threadLocker.lock();
-    threads.push_back(std::make_pair(std::move(item), true));
-    threadLocker.unlock();
+    pushThread(std::thread(threadMaintain));
 }
 
 void threadMaintain() {
@@ -54,21 +53,30 @@ void threadMaintain() {
         bool flag = true;
         while (flag) {
             flag = false;
-            unsigned toRemove = 0xFFFFFFFFu;
-            for (unsigned i = 0; i < threads.size(); ++i) {
-                if (!threads.at(i).second) {
+            for (auto it = threads.begin(); it != threads.end(); ++it) {
+                if (!it->second) {
                     flag = true;
-                    toRemove = i;
+                    if (logEnabled) {
+                        printLog("Thread id %s finished\n", getThreadIdStr(it->first.get_id()).c_str());
+                    }
+                    it->first.join();
+                    threads.erase(it);
+                    break;
                 }
-            }
-            if (flag) {
-                threads.at(toRemove).first.join();
-                threads.erase(threads.begin() + toRemove);
             }
         }
         threadLocker.unlock();
-        std::this_thread::sleep_for(std::chrono::seconds(2));
+        if (valid) {
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+        }
     }
+}
+
+void pushThread(std::thread&& item) {
+    threadLocker.lock();
+    printLog("Thread id %s started\n", getThreadIdStr(item.get_id()).c_str());
+    threads.push_back(std::make_pair(std::move(item), true));
+    threadLocker.unlock();
 }
 
 void finishThread() {
@@ -81,14 +89,14 @@ void finishThread() {
     }
 }
 
-void joinAll(bool logEnabled) {
+void joinAll() {
     valid = false;
     for (auto& item : threads) {
         if (item.first.joinable()) {
-            item.first.join();
             if (logEnabled) {
                 printLog("Thread id %s finished\n", getThreadIdStr(item.first.get_id()).c_str());
             }
+            item.first.join();
         }
     }
 }

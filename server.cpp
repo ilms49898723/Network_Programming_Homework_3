@@ -113,6 +113,7 @@ private:
 };
 
 int main(int argc, const char** argv) {
+    lb::setLogEnabled(true);
     lb::threadManageInit();
     int port = parseArgument(argc, argv);
     int listenfd = newServer(port);
@@ -168,7 +169,6 @@ int parseArgument(int argc, const char** argv) {
 }
 
 void serverFunc(const int fd, ConnectInfo connectInfo) {
-    printLog("New thread id %s started\n", lb::getThreadIdStr(std::this_thread::get_id()).c_str());
     printLog("New connection from %s port %d\n", connectInfo.address.c_str(), connectInfo.port);
     ServerUtility serverUtility(fd, connectInfo);
     char buffer[MAXN];
@@ -188,7 +188,6 @@ void serverFunc(const int fd, ConnectInfo connectInfo) {
         }
     }
     lb::finishThread();
-    printLog("Thread id %s finished\n", lb::getThreadIdStr(std::this_thread::get_id()).c_str());
     printLog("%s port %d disconnected\n", connectInfo.address.c_str(), connectInfo.port);
 }
 

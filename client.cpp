@@ -125,13 +125,14 @@ private:
 };
 
 int main(int argc, const char** argv) {
+    lb::setLogEnabled(false);
     lb::threadManageInit();
     stage = NPStage::WELCOME;
     ConnectInfo connectInfo = parseArgument(argc, argv);
     ConnectData server = newConnection(connectInfo);
     p2pPort = p2pserverInit();
     clientFunc(server);
-    lb::joinAll(false);
+    lb::joinAll();
     return 0;
 }
 
