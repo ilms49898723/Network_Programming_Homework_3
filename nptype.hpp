@@ -28,7 +28,6 @@ struct ConnectInfo {
         address(address), port(port) {}
 };
 
-// account information
 struct Account {
     std::string account;
     std::string password;
@@ -38,11 +37,19 @@ struct Account {
         account(account), password(password), isOnline(isOnline) {}
 };
 
+struct FileInfo {
+    std::string filename;
+    unsigned long size;
+    std::set<std::string> owner;
+    FileInfo(const std::string& filename = "", const unsigned long size = 0u) :
+        filename(filename), size(size) {}
+};
+
 struct ServerData {
     std::mutex accountLocker;
     std::mutex fileListLocker;
     std::map<std::string, Account> userData;
-    std::map<std::string, std::set<std::string>> fileData;
+    std::map<std::string, FileInfo> fileData;
 };
 
 #endif // NETWORK_PROGRAMMING_NPTYPE_HPP_

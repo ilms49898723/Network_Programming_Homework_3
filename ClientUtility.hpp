@@ -187,8 +187,13 @@ public:
             if (dirst->d_type == DT_DIR) {
                 continue;
             }
-            info += std::string(" ") + std::string(dirst->d_name);
-            msg += "    " + std::string(dirst->d_name);
+            std::string filepath = std::string("Client/") + dirst->d_name;
+            struct stat st;
+            if (stat(filepath.c_str(), &st) < 0) {
+                continue;
+            }
+            info += std::string(" ") + std::string(dirst->d_name) + std::string(" ") + std::to_string(st.st_size);
+            msg += "    " + std::string(dirst->d_name) + "\n";
         }
         closedir(dir);
         tcpWrite(fd, info.c_str(), info.length());

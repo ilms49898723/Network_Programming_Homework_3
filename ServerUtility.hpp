@@ -126,13 +126,13 @@ private:
         }
         data.userData.erase(nowAccount);
         for (auto& item : data.fileData) {
-            item.second.erase(nowAccount);
+            item.second.owner.erase(nowAccount);
         }
         while (true) {
             bool flag = false;
             std::string filename;
             for (auto& item : data.fileData) {
-                if (item.second.empty()) {
+                if (item.second.owner.empty()) {
                     filename = item.first;
                     flag = true;
                     break;
@@ -181,10 +181,13 @@ private:
     void fileListUpdate(const std::string& msg, ServerData& data) {
         std::istringstream iss(msg.c_str() + msgUPDATEFILELIST.length());
         std::string filename;
+        unsigned long filesize;
         printLog("Account %s files:\n", nowAccount.c_str());
-        while (iss >> filename) {
-            data.fileData[filename].insert(nowAccount);
-            printf("          %s\n", filename.c_str());
+        while (iss >> filename >> filesize) {
+            data.fileData[filename].filename = filename;
+            data.fileData[filename].size = filesize;
+            data.fileData[filename].owner.insert(nowAccount);
+            printf("          %s (%lu bytes)\n", filename.c_str(), filesize);
         }
     }
 
@@ -195,8 +198,8 @@ private:
         }
         std::string reply = "Files:\n";
         for (auto& item : data.fileData) {
-            reply += "    " + item.first + "\n";
-            for (auto& owners : item.second) {
+            reply += "    " + item.first + " (" + std::to_string(item.second.size) + " bytes)\n";
+            for (auto& owners : item.second.owner) {
                 reply += "        " + owners + ((data.userData[owners].isOnline) ? " [Online]" : " [Offline]") + "\n";
             }
         }
