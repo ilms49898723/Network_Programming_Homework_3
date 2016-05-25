@@ -90,25 +90,20 @@ void serverFunc(const int fd, ConnectInfo connectInfo) {
     char buffer[MAXN];
     while (serverUtility.isValid()) {
         if (tcpRead(fd, buffer, MAXN) <= 0) {
+            serverUtility.accountUtility(msgLOGOUT, serverData);
             break;
         }
         std::string command(buffer);
-        if (command.find(msgREGISTER) == 0u) {
+        if (command.find(msgREGISTER) == 0u ||
+            command.find(msgLOGIN) == 0u ||
+            command.find(msgLOGOUT) == 0u ||
+            command.find(msgDELETEACCOUNT) == 0u ||
+            command.find(msgUPDATECONNECTINFO) == 0u ||
+            command.find(msgSHOWUSER) == 0u) {
             serverUtility.accountUtility(command, serverData);
         }
-        else if (command.find(msgLOGIN) == 0u) {
-            serverUtility.accountUtility(command, serverData);
-        }
-        else if (command.find(msgLOGOUT) == 0u) {
-            serverUtility.accountUtility(command, serverData);
-        }
-        else if (command.find(msgDELETEACCOUNT) == 0u) {
-            serverUtility.accountUtility(command, serverData);
-        }
-        else if (command.find(msgUPDATECONNECTINFO) == 0u) {
-            serverUtility.accountUtility(command, serverData);
-        }
-        else if (command.find(msgUPDATEFILELIST) == 0u) {
+        else if (command.find(msgUPDATEFILELIST) == 0u ||
+                 command.find(msgSHOWFILELIST) == 0u) {
             serverUtility.fileListUtility(command, serverData);
         }
     }

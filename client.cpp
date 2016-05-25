@@ -65,7 +65,7 @@ void clientFunc(const ConnectData& server) {
     ClientUtility clientUtility(server.fd, p2pPort, ws.ws_row, ws.ws_col);
     char buffer[MAXN];
     clientUtility.setStage(NPStage::WELCOME);
-    clientUtility.printMessage("Welcome");
+    clientUtility.printMessage("Welcome!");
     while (true) {
         if (fgets(buffer, MAXN, stdin) == NULL) {
             break;
@@ -74,6 +74,8 @@ void clientFunc(const ConnectData& server) {
         toUpperString(buffer);
         std::string command(buffer);
         if (command == "Q" || command == "QUIT") {
+            clientUtility.logout();
+            printf("\n");
             break;
         }
         switch (static_cast<int>(clientUtility.getStage())) {
@@ -95,6 +97,12 @@ void clientFunc(const ConnectData& server) {
                 else if (command == "DA") {
                     clientUtility.deleteAccount();
                 }
+                else if (command == "SU") {
+                    clientUtility.showUser();
+                }
+                else if (command == "SF") {
+                    clientUtility.showFileList();
+                }
                 else {
                     clientUtility.printMessage("Invalid command", true);
                 }
@@ -102,6 +110,7 @@ void clientFunc(const ConnectData& server) {
                 break;
         }
     }
+    close(server.fd);
 }
 
 int p2pserverInit() {

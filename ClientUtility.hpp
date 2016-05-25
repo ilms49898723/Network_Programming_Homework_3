@@ -151,11 +151,17 @@ public:
             nowAccount = account;
             updateConnectInfo();
             updateFileList();
+            printMessage(std::string("Login Success!\n\nWelcome ") + account + "!");
         }
-        printMessage(buffer);
+        else {
+            printMessage(buffer);
+        }
     }
 
     void logout() {
+        if (nowAccount == "") {
+            return;
+        }
         std::string info = msgLOGOUT;
         tcpWrite(fd, info.c_str(), info.length());
         nowAccount = "";
@@ -185,6 +191,22 @@ public:
         closedir(dir);
         tcpWrite(fd, info.c_str(), info.length());
         printMessage(lastmsg + "\n\nFile List updated!");
+    }
+
+    void showFileList() {
+        std::string info = msgSHOWFILELIST;
+        tcpWrite(fd, info.c_str(), info.length());
+        char buffer[MAXN];
+        tcpRead(fd, buffer, MAXN);
+        printMessage(buffer);
+    }
+
+    void showUser() {
+        std::string info = msgSHOWUSER;
+        tcpWrite(fd, info.c_str(), info.length());
+        char buffer[MAXN];
+        tcpRead(fd, buffer, MAXN);
+        printMessage(buffer);
     }
 
 public:

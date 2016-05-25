@@ -16,6 +16,9 @@ const std::string msgDELETEACCOUNT = "DELETEACCOUNT";
 const std::string msgUPDATECONNECTINFO = "UPDATECONNECTINFO";
 const std::string msgUPDATEFILELIST = "UPDATEFILELIST";
 
+const std::string msgSHOWUSER = "SHOWUSER";
+const std::string msgSHOWFILELIST = "SHOWFILELIST";
+
 const std::string msgSUCCESS = "Success!";
 const std::string msgFAIL = "Failed!";
 

@@ -55,12 +55,18 @@ public:
         else if (msg.find(msgUPDATECONNECTINFO) == 0u) {
             accountUpdateConnectInfo(msg, data);
         }
+        else if (msg.find(msgSHOWUSER) == 0u) {
+            accountShowInfo(msg, data);
+        }
     }
 
     void fileListUtility(const std::string& msg, ServerData& data) {
         std::lock_guard<std::mutex> lock(data.fileListLocker);
         if (msg.find(msgUPDATEFILELIST) == 0u) {
-            fileUpdateList(msg, data);
+            fileListUpdate(msg, data);
+        }
+        else if (msg.find(msgSHOWFILELIST) == 0u) {
+            fileListShow(msg, data);
         }
     }
 
@@ -91,6 +97,10 @@ private:
             std::string reply = msgFAIL + " Invalid account or password";
             tcpWrite(fd, reply.c_str(), reply.length());
         }
+        else if (data.userData.at(account).isOnline) {
+            std::string reply = msgFAIL + " Already online, please log out first";
+            tcpWrite(fd, reply.c_str(), reply.length());
+        }
         else {
             nowAccount = account;
             data.userData[account].isOnline = true;
@@ -101,7 +111,7 @@ private:
 
     // LOGOUT
     void accountLogout(const std::string& msg, ServerData& data) {
-        if (msg.find(msgLOGOUT) != 0u) {
+        if (msg.find(msgLOGOUT) != 0u || nowAccount == "") {
             return;
         }
         printLog("Account %s logout\n", nowAccount.c_str());
@@ -147,8 +157,28 @@ private:
         printLog("Account %s info updated IP %s port %d\n", nowAccount.c_str(), connectInfo.address.c_str(), port);
     }
 
+    // SHOWUSER
+    void accountShowInfo(const std::string& msg, ServerData& data) {
+        if (msg.find(msgSHOWUSER) != 0u) {
+            return;
+        }
+        std::string reply = "Online Users:\n";
+        reply += "    Account                               IP                Port\n";
+        for (auto& item : data.userData) {
+            if (item.second.isOnline) {
+                char formatBuffer[MAXN];
+                snprintf(formatBuffer, MAXN, "    %-35s   %-15s   %d\n",
+                         item.first.c_str(),
+                         item.second.connectInfo.address.c_str(),
+                         item.second.connectInfo.port);
+                reply += formatBuffer;
+            }
+        }
+        tcpWrite(fd, reply.c_str(), reply.length());
+    }
+
     // UPDATEFILELIST [files ...]
-    void fileUpdateList(const std::string& msg, ServerData& data) {
+    void fileListUpdate(const std::string& msg, ServerData& data) {
         std::istringstream iss(msg.c_str() + msgUPDATEFILELIST.length());
         std::string filename;
         printLog("Account %s files:\n", nowAccount.c_str());
@@ -156,6 +186,21 @@ private:
             data.fileData[filename].insert(nowAccount);
             printf("          %s\n", filename.c_str());
         }
+    }
+
+    // SHOWFILELIST
+    void fileListShow(const std::string& msg, ServerData& data) {
+        if (msg.find(msgSHOWFILELIST) != 0u) {
+            return;
+        }
+        std::string reply = "Files:\n";
+        for (auto& item : data.fileData) {
+            reply += "    " + item.first + "\n";
+            for (auto& owners : item.second) {
+                reply += "        " + owners + ((data.userData[owners].isOnline) ? " [Online]" : " [Offline]") + "\n";
+            }
+        }
+        tcpWrite(fd, reply.c_str(), reply.length());
     }
 
 private:
