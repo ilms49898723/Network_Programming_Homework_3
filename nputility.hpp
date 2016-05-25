@@ -2,6 +2,7 @@
 #define NETWORK_PROGRAMMING_NPUTILITY_HPP_
 
 #include <cstdio>
+#include <cstdarg>
 #include <cstdlib>
 #include <cstring>
 #include <cctype>
@@ -99,6 +100,17 @@ int tcpRead(const int fd, char* buffer, const size_t n) {
         fprintf(stderr, "read: %s\n", strerror(errno));
     }
     return m;
+}
+
+void printLog(const char* format, ...) {
+    va_list args;
+    va_start(args, format);
+    time_t now = time(NULL);
+    char timeBuffer[MAXN];
+    strftime(timeBuffer, MAXN, "[%T]", localtime(&now));
+    printf("%s", timeBuffer);
+    vprintf(format, args);
+    va_end(args);
 }
 
 char* trimNewLine(char* src) {

@@ -1,6 +1,8 @@
 #include <cstdio>
+#include <cstdarg>
 #include <cstring>
 #include <cstdlib>
+#include <ctime>
 #include <chrono>
 #include <string>
 #include <sstream>
@@ -15,16 +17,23 @@
 #include "nptype.hpp"
 #include "nputility.hpp"
 #include "message.hpp"
+#include "ThreadUtil.hpp"
 
 // account information
 struct Account {
     std::string account;
     std::string password;
+    std::vector<std::string> files;
     ConnectInfo connectInfo;
     bool isOnline;
     Account(const std::string& account = "", const std::string& password = "", const bool isOnline = false) :
         account(account), password(password), isOnline(isOnline) {}
 };
+
+// server init functions
+int parseArgument(int argc, const char** argv);
+// server main function
+void serverFunc(const int fd, ConnectInfo connectInfo);
 
 // server utility
 class ServerUtility {
@@ -62,7 +71,7 @@ private:
             tcpWrite(fd, reply.c_str(), reply.length());
         }
         else {
-            printf("New account %s created\n", account);
+            printLog("New account %s created\n", account);
             userData.insert(std::make_pair(account, Account(account, password)));
             std::string reply = msgSUCCESS;
             tcpWrite(fd, reply.c_str(), reply.length());
@@ -91,7 +100,7 @@ private:
         int port;
         sscanf(msg.c_str() + msgUpdateConnectInfo.length(), "%s%d", account, &port);
         userData[account].connectInfo = ConnectInfo(connectInfo.address, port);
-        printf("Account %s connection info updated. IP %s port %d\n", account, connectInfo.address.c_str(), port);
+        printLog("Account %s connection info updated. IP %s port %d\n", account, connectInfo.address.c_str(), port);
     }
 
 private:
@@ -103,30 +112,11 @@ private:
     std::map<std::string, Account> userData;
 };
 
-// thread related variables
-bool isValid;
-std::mutex threadLocker;
-// vector of threads
-std::vector<std::pair<std::thread, bool>> threads;
-// thread related functions
-void threadMaintain();
-void finishThread();
-void joinAll();
-std::string getThreadId();
-
-// server init functions
-int parseArgument(int argc, const char** argv);
-// server main function
-void serverFunc(const int fd, ConnectInfo connectInfo);
-
 int main(int argc, const char** argv) {
-    threadLocker.lock();
-    threads.push_back(std::make_pair(std::thread(threadMaintain), true));
-    threadLocker.unlock();
-    isValid = true;
+    lb::threadManageInit();
     int port = parseArgument(argc, argv);
     int listenfd = newServer(port);
-    while (isValid) {
+    while (lb::isValid()) {
         fd_set fdset;
         FD_ZERO(&fdset);
         FD_SET(fileno(stdin), &fdset);
@@ -150,67 +140,18 @@ int main(int argc, const char** argv) {
             trimNewLine(command);
             toLowerString(command);
             if (std::string(command) == "q" || std::string(command) == "quit") {
-                isValid = false;
+                lb::setValid(false);
                 break;
             }
         }
         if (FD_ISSET(listenfd, &fdset)) {
             ConnectData client = newClient(listenfd);
             ConnectInfo connectInfo = getConnectInfo(client.sock);
-            std::lock_guard<std::mutex> lock(threadLocker);
-            threads.push_back(std::make_pair(std::thread(serverFunc, client.fd, connectInfo), true));
+            lb::pushThread(std::thread(serverFunc, client.fd, connectInfo));
         }
     }
-    joinAll();
+    lb::joinAll();
     return 0;
-}
-
-void threadMaintain() {
-    while (isValid) {
-        threadLocker.lock();
-        bool flag = true;
-        while (flag) {
-            flag = false;
-            unsigned toRemove = 0xFFFFFFFFu;
-            for (unsigned i = 0; i < threads.size(); ++i) {
-                if (!threads.at(i).second) {
-                    flag = true;
-                    toRemove = i;
-                }
-            }
-            if (flag) {
-                threads.at(toRemove).first.join();
-                threads.erase(threads.begin() + toRemove);
-            }
-        }
-        threadLocker.unlock();
-        std::this_thread::sleep_for(std::chrono::seconds(2));
-    }
-}
-
-void finishThread() {
-    std::lock_guard<std::mutex> lock(threadLocker);
-    for (auto& item : threads) {
-        if (std::this_thread::get_id() == item.first.get_id()) {
-            item.second = false;
-            break;
-        }
-    }
-}
-
-void joinAll() {
-    isValid = false;
-    for (auto& item : threads) {
-        if (item.first.joinable()) {
-            item.first.join();
-        }
-    }
-}
-
-std::string getThreadId() {
-    std::ostringstream oss;
-    oss << std::hex << std::this_thread::get_id();
-    return oss.str();
 }
 
 int parseArgument(int argc, const char** argv) {
@@ -227,8 +168,8 @@ int parseArgument(int argc, const char** argv) {
 }
 
 void serverFunc(const int fd, ConnectInfo connectInfo) {
-    printf("New thread id %s started\n", getThreadId().c_str());
-    printf("New connection from %s port %d\n", connectInfo.address.c_str(), connectInfo.port);
+    printLog("New thread id %s started\n", lb::getThreadIdStr(std::this_thread::get_id()).c_str());
+    printLog("New connection from %s port %d\n", connectInfo.address.c_str(), connectInfo.port);
     ServerUtility serverUtility(fd, connectInfo);
     char buffer[MAXN];
     while (true) {
@@ -246,8 +187,8 @@ void serverFunc(const int fd, ConnectInfo connectInfo) {
             serverUtility.accountUtility(command);
         }
     }
-    finishThread();
-    printf("Thread id %s finished\n", getThreadId().c_str());
-    printf("%s port %d disconnected\n", connectInfo.address.c_str(), connectInfo.port);
+    lb::finishThread();
+    printLog("Thread id %s finished\n", lb::getThreadIdStr(std::this_thread::get_id()).c_str());
+    printLog("%s port %d disconnected\n", connectInfo.address.c_str(), connectInfo.port);
 }
 

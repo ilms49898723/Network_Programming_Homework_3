@@ -15,17 +15,7 @@
 #include "nptype.hpp"
 #include "nputility.hpp"
 #include "message.hpp"
-
-// thread related variables
-bool isValid;
-std::mutex threadLocker;
-// vector of threads
-std::vector<std::pair<std::thread, bool>> threads;
-// thread related functions
-void threadMaintain();
-void finishThread();
-void joinAll();
-std::string getThreadId();
+#include "ThreadUtil.hpp"
 
 // client variables
 NPStage stage;
@@ -135,65 +125,14 @@ private:
 };
 
 int main(int argc, const char** argv) {
-    threadLocker.lock();
-    threads.push_back(std::make_pair(std::thread(threadMaintain), true));
-    threadLocker.unlock();
-    isValid = true;
+    lb::threadManageInit();
     stage = NPStage::WELCOME;
     ConnectInfo connectInfo = parseArgument(argc, argv);
     ConnectData server = newConnection(connectInfo);
     p2pPort = p2pserverInit();
     clientFunc(server);
-    joinAll();
+    lb::joinAll(false);
     return 0;
-}
-
-void threadMaintain() {
-    while (isValid) {
-        threadLocker.lock();
-        bool flag = true;
-        while (flag) {
-            flag = false;
-            unsigned toRemove = 0xFFFFFFFFu;
-            for (unsigned i = 0; i < threads.size(); ++i) {
-                if (!threads.at(i).second) {
-                    flag = true;
-                    toRemove = i;
-                }
-            }
-            if (flag) {
-                threads.at(toRemove).first.join();
-                threads.erase(threads.begin() + toRemove);
-            }
-        }
-        threadLocker.unlock();
-        std::this_thread::sleep_for(std::chrono::seconds(2));
-    }
-}
-
-void finishThread() {
-    std::lock_guard<std::mutex> lock(threadLocker);
-    for (auto& item : threads) {
-        if (std::this_thread::get_id() == item.first.get_id()) {
-            item.second = false;
-            break;
-        }
-    }
-}
-
-void joinAll() {
-    isValid = false;
-    for (auto& item : threads) {
-        if (item.first.joinable()) {
-            item.first.join();
-        }
-    }
-}
-
-std::string getThreadId() {
-    std::ostringstream oss;
-    oss << std::hex << std::this_thread::get_id();
-    return oss.str();
 }
 
 ConnectInfo parseArgument(const int& argc, const char**& argv) {
@@ -268,13 +207,12 @@ int p2pserverInit() {
             break;
         }
     }
-    std::lock_guard<std::mutex> lock(threadLocker);
-    threads.push_back(std::make_pair(std::thread(p2pserverAccept, serverfd), true));
+    lb::pushThread(std::thread(p2pserverAccept, serverfd));
     return port;
 }
 
 void p2pserverAccept(const int listenfd) {
-    while (isValid) {
+    while (lb::isValid()) {
         fd_set fdset;
         FD_ZERO(&fdset);
         FD_SET(listenfd, &fdset);
@@ -292,14 +230,13 @@ void p2pserverAccept(const int listenfd) {
         if (FD_ISSET(listenfd, &fdset)) {
             ConnectData client = newClient(listenfd);
             ConnectInfo connectInfo = getConnectInfo(client.sock);
-            std::lock_guard<std::mutex> lock(threadLocker);
-            threads.push_back(std::make_pair(std::thread(p2pserverFunc, client.fd, connectInfo), true));
+            lb::pushThread(std::thread(p2pserverFunc, client.fd, connectInfo));
         }
     }
-    finishThread();
+    lb::finishThread();
 }
 
 void p2pserverFunc(int fd, ConnectInfo connectInfo) {
-    finishThread();
+    lb::finishThread();
 }
 
