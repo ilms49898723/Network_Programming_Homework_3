@@ -27,10 +27,15 @@ public:
     ServerUtility(int fd, ConnectInfo connectInfo) {
         this->fd = fd;
         this->connectInfo = connectInfo;
+        this->valid = true;
     }
 
     ~ServerUtility() {
 
+    }
+
+    bool isValid() const {
+        return valid;
     }
 
     void accountUtility(const std::string& msg, ServerData& data) {
@@ -43,6 +48,9 @@ public:
         }
         else if (msg.find(msgLOGOUT) == 0u) {
             accountLogout(msg, data);
+        }
+        else if (msg.find(msgDELETEACCOUNT) == 0u) {
+            accountDelete(msg, data);
         }
         else if (msg.find(msgUPDATECONNECTINFO) == 0u) {
             accountUpdateConnectInfo(msg, data);
@@ -101,6 +109,36 @@ private:
         nowAccount = "";
     }
 
+    // DELETEACCOUNT
+    void accountDelete(const std::string& msg, ServerData& data) {
+        if (msg.find(msgDELETEACCOUNT) != 0u) {
+            return;
+        }
+        data.userData.erase(nowAccount);
+        for (auto& item : data.fileData) {
+            item.second.erase(nowAccount);
+        }
+        while (true) {
+            bool flag = false;
+            std::string filename;
+            for (auto& item : data.fileData) {
+                if (item.second.empty()) {
+                    filename = item.first;
+                    flag = true;
+                    break;
+                }
+            }
+            if (flag) {
+                data.fileData.erase(filename);
+            }
+            else {
+                break;
+            }
+        }
+        printLog("Account %s was deleted\n", nowAccount.c_str());
+        nowAccount = "";
+    }
+
     // UPDATECONNECTIONINFO port
     void accountUpdateConnectInfo(const std::string& msg, ServerData& data) {
         int port;
@@ -124,6 +162,7 @@ private:
     std::string nowAccount;
     ConnectInfo connectInfo;
     int fd;
+    bool valid;
 };
 
 #endif // NETWORK_PROGRAMMING_SERVERUTILITY_HPP_

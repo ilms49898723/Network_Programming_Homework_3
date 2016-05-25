@@ -88,7 +88,7 @@ void serverFunc(const int fd, ConnectInfo connectInfo) {
     ServerUtility serverUtility(fd, connectInfo);
     printLog("New connection from %s port %d\n", connectInfo.address.c_str(), connectInfo.port);
     char buffer[MAXN];
-    while (true) {
+    while (serverUtility.isValid()) {
         if (tcpRead(fd, buffer, MAXN) <= 0) {
             break;
         }
@@ -101,7 +101,9 @@ void serverFunc(const int fd, ConnectInfo connectInfo) {
         }
         else if (command.find(msgLOGOUT) == 0u) {
             serverUtility.accountUtility(command, serverData);
-            break;
+        }
+        else if (command.find(msgDELETEACCOUNT) == 0u) {
+            serverUtility.accountUtility(command, serverData);
         }
         else if (command.find(msgUPDATECONNECTINFO) == 0u) {
             serverUtility.accountUtility(command, serverData);

@@ -103,6 +103,26 @@ public:
         printMessage(buffer);
     }
 
+    void deleteAccount() {
+        char buffer[MAXN];
+        printf("Are you sure?(yes/no) ");
+        if (fgets(buffer, MAXN, stdin) == NULL) {
+            printPrevious();
+            return;
+        }
+        trimNewLine(buffer);
+        if (std::string(buffer) == "yes") {
+            std::string info = msgDELETEACCOUNT;
+            tcpWrite(fd, info.c_str(), info.length());
+            stage = NPStage::WELCOME;
+            nowAccount = "";
+            printMessage("Success!");
+        }
+        else {
+            printMessage("Canceled", true);
+        }
+    }
+
     void login() {
         char account[MAXN];
         char password[MAXN];
@@ -138,11 +158,9 @@ public:
     void logout() {
         std::string info = msgLOGOUT;
         tcpWrite(fd, info.c_str(), info.length());
-        char buffer[MAXN];
-        tcpRead(fd, buffer, MAXN);
         nowAccount = "";
         stage = NPStage::WELCOME;
-        printMessage(buffer);
+        printMessage("Logout Success");
     }
 
     void updateConnectInfo() {

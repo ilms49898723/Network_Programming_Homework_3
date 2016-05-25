@@ -92,6 +92,9 @@ void clientFunc(const ConnectData& server) {
                 if (command == "L") {
                     clientUtility.logout();
                 }
+                else if (command == "DA") {
+                    clientUtility.deleteAccount();
+                }
                 else {
                     clientUtility.printMessage("Invalid command", true);
                 }
