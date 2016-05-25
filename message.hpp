@@ -4,9 +4,9 @@
 #include <string>
 
 const std::string optWELCOME = std::string("[L]Login     [R]Register    [Q]Quit");
-const std::string optMAIN = std::string("[SU]Show User   [SF]Show File List  [R]Request File List\n") +
-                            std::string("[U]Upload       [D]Download\n") +
-                            std::string("[T]Talk         [L]Logout");
+const std::string optMAIN = std::string("[SU]Show User         [SF]Show File List  [SE]Send Your File List\n") +
+                            std::string("[R]Request File List  [U]Upload           [D]Download\n") +
+                            std::string("[T]Talk               [L]Logout");
 
 const std::string msgREGISTER = "REGISTER";
 const std::string msgLOGIN = "LOGIN";

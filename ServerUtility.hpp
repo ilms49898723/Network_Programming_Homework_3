@@ -33,8 +33,8 @@ public:
 
     }
 
-    void accountUtility(const std::string& msg, ServerData& data, std::mutex& locker) {
-        std::lock_guard<std::mutex> lock(locker);
+    void accountUtility(const std::string& msg, ServerData& data) {
+        std::lock_guard<std::mutex> lock(data.accountLocker);
         if (msg.find(msgREGISTER) == 0u) {
             accountRegister(msg, data);
         }
@@ -46,6 +46,13 @@ public:
         }
         else if (msg.find(msgUPDATECONNECTINFO) == 0u) {
             accountUpdateConnectInfo(msg, data);
+        }
+    }
+
+    void fileListUtility(const std::string& msg, ServerData& data) {
+        std::lock_guard<std::mutex> lock(data.fileListLocker);
+        if (msg.find(msgUPDATEFILELIST) == 0u) {
+            fileUpdateList(msg, data);
         }
     }
 
@@ -100,6 +107,17 @@ private:
         sscanf(msg.c_str() + msgUPDATECONNECTINFO.length(), "%d", &port);
         data.userData[nowAccount].connectInfo = ConnectInfo(connectInfo.address, port);
         printLog("Account %s info updated IP %s port %d\n", nowAccount.c_str(), connectInfo.address.c_str(), port);
+    }
+
+    // UPDATEFILELIST [files ...]
+    void fileUpdateList(const std::string& msg, ServerData& data) {
+        std::istringstream iss(msg.c_str() + msgUPDATEFILELIST.length());
+        std::string filename;
+        printLog("Account %s files:\n", nowAccount.c_str());
+        while (iss >> filename) {
+            data.fileData[filename].insert(nowAccount);
+            printf("          %s\n", filename.c_str());
+        }
     }
 
 private:

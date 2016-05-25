@@ -21,6 +21,7 @@
 #include "ClientUtility.hpp"
 
 // client variables
+winsize ws;
 int p2pPort;
 // client init functions
 ConnectInfo parseArgument(const int& argc, const char**& argv);
@@ -35,6 +36,8 @@ void p2pserverFunc(int fd, ConnectInfo connectInfo);
 int main(int argc, const char** argv) {
     lb::setLogEnabled(false);
     lb::threadManageInit();
+    ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws);
+    mkdir("Client", 0777);
     ConnectInfo connectInfo = parseArgument(argc, argv);
     ConnectData server = newConnection(connectInfo);
     p2pPort = p2pserverInit();
@@ -59,7 +62,7 @@ ConnectInfo parseArgument(const int& argc, const char**& argv) {
 }
 
 void clientFunc(const ConnectData& server) {
-    ClientUtility clientUtility(server.fd, p2pPort);
+    ClientUtility clientUtility(server.fd, p2pPort, ws.ws_row, ws.ws_col);
     char buffer[MAXN];
     clientUtility.setStage(NPStage::WELCOME);
     clientUtility.printMessage("Welcome");

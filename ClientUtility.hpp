@@ -23,13 +23,12 @@
 #include "ThreadUtil.hpp"
 
 class ClientUtility {
-private:
-    constexpr static int MAXSPLITCHAR = 70;
-
 public:
-    ClientUtility(int fd, int p2pPort) {
+    ClientUtility(int fd, int p2pPort, int row, int col) {
         this->fd = fd;
         this->p2pPort = p2pPort;
+        this->terminalRow = row;
+        this->terminalCol = col;
         stage = NPStage::WELCOME;
     }
 
@@ -51,14 +50,15 @@ public:
         printSplitLine();
         switch (static_cast<int>(stage)) {
         case 0: // WELCOME
-            printf("%s\n", optWELCOME.c_str());
+            printf("%s\n$ ", optWELCOME.c_str());
             break;
         case 1: // MAIN
-            printf("%s\n", optMAIN.c_str());
+            printf("%s\n%s:$ ", optMAIN.c_str(), nowAccount.c_str());
             break;
         default:
             break;
         }
+        fflush(stdout);
     }
 
     void printPrevious() {
@@ -77,19 +77,19 @@ public:
         }
         trimNewLine(account);
         if (!isValidString(account)) {
-            printMessage("Account can not contain space, tabs", true);
+            printMessage("Account cannot contain space, tabs", true);
             return;
         }
         strcpy(password, getpass("Password: "));
         trimNewLine(password);
         if (!isValidString(password)) {
-            printMessage("Password can not contain space, tabs", true);
+            printMessage("Password cannot contain space, tabs", true);
             return;
         }
         strcpy(confirmPassword, getpass("Confirm password: "));
         trimNewLine(confirmPassword);
         if (!isValidString(confirmPassword)) {
-            printMessage("Password can not contain space, tabs", true);
+            printMessage("Password cannot contain space, tabs", true);
             return;
         }
         if (strcmp(password, confirmPassword)) {
@@ -113,13 +113,13 @@ public:
         }
         trimNewLine(account);
         if (!isValidString(account)) {
-            printMessage("Account can not contain space, tabs", true);
+            printMessage("Account cannot contain space, tabs", true);
             return;
         }
         strcpy(password, getpass("Password: "));
         trimNewLine(password);
         if (!isValidString(password)) {
-            printMessage("Password can not contain space, tabs", true);
+            printMessage("Password cannot contain space, tabs", true);
             return;
         }
         std::string msg = msgLOGIN + " " + account + " " + password;
@@ -130,6 +130,7 @@ public:
             stage = NPStage::MAIN;
             nowAccount = account;
             updateConnectInfo();
+            updateFileList();
         }
         printMessage(buffer);
     }
@@ -150,7 +151,22 @@ public:
     }
 
     void updateFileList() {
-
+        DIR* dir = opendir("Client");
+        if (!dir) {
+            printMessage("Cannot open directory Client", true);
+            return;
+        }
+        dirent *dirst;
+        std::string info = msgUPDATEFILELIST;
+        while ((dirst = readdir(dir))) {
+            if (dirst->d_type == DT_DIR) {
+                continue;
+            }
+            info += std::string(" ") + std::string(dirst->d_name);
+        }
+        closedir(dir);
+        tcpWrite(fd, info.c_str(), info.length());
+        printMessage(lastmsg + "\n\nFile List updated!");
     }
 
 public:
@@ -172,13 +188,13 @@ public:
 
 private:
     void flushScreen() {
-        for (int i = 0; i < 50; ++i) {
+        for (int i = 0; i < terminalRow; ++i) {
             putc('\n', stdout);
         }
     }
 
     void printSplitLine() {
-        for (int i = 0; i < MAXSPLITCHAR; ++i) {
+        for (int i = 0; i < terminalCol; ++i) {
             putc('-', stdout);
         }
         putc('\n', stdout);
@@ -202,6 +218,11 @@ private:
     NPStage stage;
     int fd;
     int p2pPort;
+
+private:
+    int terminalRow;
+    int terminalCol;
 };
+
 #endif // NETWORK_PROGRAMMING_CLIENTUTILITY_HPP_
 

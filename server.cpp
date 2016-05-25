@@ -21,7 +21,6 @@
 #include "ServerUtility.hpp"
 
 // server data
-std::mutex accountLocker;
 ServerData serverData;
 
 // server init functions
@@ -95,17 +94,20 @@ void serverFunc(const int fd, ConnectInfo connectInfo) {
         }
         std::string command(buffer);
         if (command.find(msgREGISTER) == 0u) {
-            serverUtility.accountUtility(command, serverData, accountLocker);
+            serverUtility.accountUtility(command, serverData);
         }
         else if (command.find(msgLOGIN) == 0u) {
-            serverUtility.accountUtility(command, serverData, accountLocker);
+            serverUtility.accountUtility(command, serverData);
         }
         else if (command.find(msgLOGOUT) == 0u) {
-            serverUtility.accountUtility(command, serverData, accountLocker);
+            serverUtility.accountUtility(command, serverData);
             break;
         }
         else if (command.find(msgUPDATECONNECTINFO) == 0u) {
-            serverUtility.accountUtility(command, serverData, accountLocker);
+            serverUtility.accountUtility(command, serverData);
+        }
+        else if (command.find(msgUPDATEFILELIST) == 0u) {
+            serverUtility.fileListUtility(command, serverData);
         }
     }
     close(fd);

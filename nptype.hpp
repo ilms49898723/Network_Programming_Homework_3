@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <set>
 
 enum class NPStage {
     WELCOME, MAIN
@@ -31,7 +32,6 @@ struct ConnectInfo {
 struct Account {
     std::string account;
     std::string password;
-    std::vector<std::string> files;
     ConnectInfo connectInfo;
     bool isOnline;
     Account(const std::string& account = "", const std::string& password = "", const bool isOnline = false) :
@@ -39,7 +39,10 @@ struct Account {
 };
 
 struct ServerData {
+    std::mutex accountLocker;
+    std::mutex fileListLocker;
     std::map<std::string, Account> userData;
+    std::map<std::string, std::set<std::string>> fileData;
 };
 
 #endif // NETWORK_PROGRAMMING_NPTYPE_HPP_
