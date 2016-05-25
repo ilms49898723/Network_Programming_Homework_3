@@ -61,33 +61,39 @@ public:
         }
     }
 
+    void printPrevious() {
+        printMessage(lastmsg);
+    }
+
+public:
     void newAccount() {
         char account[MAXN];
         char password[MAXN];
         char confirmPassword[MAXN];
         printf("Account: ");
         if (fgets(account, MAXN, stdin) == NULL) {
+            printPrevious();
             return;
         }
         trimNewLine(account);
         if (!isValidString(account)) {
-            fprintf(stderr, "Account can not contain space, tabs\n");
+            printMessage("Account can not contain space, tabs", true);
             return;
         }
         strcpy(password, getpass("Password: "));
         trimNewLine(password);
         if (!isValidString(password)) {
-            fprintf(stderr, "Password can not contain space, tabs\n");
+            printMessage("Password can not contain space, tabs", true);
             return;
         }
         strcpy(confirmPassword, getpass("Confirm password: "));
         trimNewLine(confirmPassword);
         if (!isValidString(confirmPassword)) {
-            fprintf(stderr, "Password can not contain space, tabs\n");
+            printMessage("Password can not contain space, tabs", true);
             return;
         }
         if (strcmp(password, confirmPassword)) {
-            fprintf(stderr, "Password not matched\n");
+            printMessage("Password not matched", true);
             return;
         }
         std::string msg = msgREGISTER + " " + account + " " + password;
@@ -102,17 +108,18 @@ public:
         char password[MAXN];
         printf("Account: ");
         if (fgets(account, MAXN, stdin) == NULL) {
+            printPrevious();
             return;
         }
         trimNewLine(account);
         if (!isValidString(account)) {
-            fprintf(stderr, "Account can not contain space, tabs\n");
+            printMessage("Account can not contain space, tabs", true);
             return;
         }
         strcpy(password, getpass("Password: "));
         trimNewLine(password);
         if (!isValidString(password)) {
-            fprintf(stderr, "Password can not contain space, tabs\n");
+            printMessage("Password can not contain space, tabs", true);
             return;
         }
         std::string msg = msgLOGIN + " " + account + " " + password;
@@ -121,10 +128,29 @@ public:
         tcpRead(fd, buffer, MAXN);
         if (std::string(buffer).find(msgSUCCESS) == 0u) {
             stage = NPStage::MAIN;
-            std::string info = msgUpdateConnectInfo + " " + account + " " + std::to_string(p2pPort);
-            tcpWrite(fd, info.c_str(), info.length());
+            nowAccount = account;
+            updateConnectInfo();
         }
         printMessage(buffer);
+    }
+
+    void logout() {
+        std::string info = msgLOGOUT;
+        tcpWrite(fd, info.c_str(), info.length());
+        char buffer[MAXN];
+        tcpRead(fd, buffer, MAXN);
+        nowAccount = "";
+        stage = NPStage::WELCOME;
+        printMessage(buffer);
+    }
+
+    void updateConnectInfo() {
+        std::string info = msgUPDATECONNECTINFO + " " + std::to_string(p2pPort);
+        tcpWrite(fd, info.c_str(), info.length());
+    }
+
+    void updateFileList() {
+
     }
 
 public:
@@ -171,6 +197,7 @@ private:
     }
 
 private:
+    std::string nowAccount;
     std::string lastmsg;
     NPStage stage;
     int fd;

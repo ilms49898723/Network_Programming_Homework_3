@@ -3,7 +3,7 @@
 
 #include <string>
 
-const std::string optWELCOME = std::string("[R]Register  [L]Login     [Q]Quit");
+const std::string optWELCOME = std::string("[L]Login     [R]Register    [Q]Quit");
 const std::string optMAIN = std::string("[SU]Show User   [SF]Show File List  [R]Request File List\n") +
                             std::string("[U]Upload       [D]Download\n") +
                             std::string("[T]Talk         [L]Logout");
@@ -13,7 +13,8 @@ const std::string msgLOGIN = "LOGIN";
 const std::string msgLOGOUT = "LOGOUT";
 const std::string msgDELETEACCOUNT = "DELETEACCOUNT";
 
-const std::string msgUpdateConnectInfo = "UPDATECONNECTINFO";
+const std::string msgUPDATECONNECTINFO = "UPDATECONNECTINFO";
+const std::string msgUPDATEFILELIST = "UPDATEFILELIST";
 
 const std::string msgSUCCESS = "Success!";
 const std::string msgFAIL = "Failed!";

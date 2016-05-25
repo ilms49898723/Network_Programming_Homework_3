@@ -20,6 +20,10 @@
 #include "ThreadUtil.hpp"
 #include "ServerUtility.hpp"
 
+// server data
+std::mutex accountLocker;
+ServerData serverData;
+
 // server init functions
 int parseArgument(int argc, const char** argv);
 // server main function
@@ -82,8 +86,8 @@ int parseArgument(int argc, const char** argv) {
 }
 
 void serverFunc(const int fd, ConnectInfo connectInfo) {
-    printLog("New connection from %s port %d\n", connectInfo.address.c_str(), connectInfo.port);
     ServerUtility serverUtility(fd, connectInfo);
+    printLog("New connection from %s port %d\n", connectInfo.address.c_str(), connectInfo.port);
     char buffer[MAXN];
     while (true) {
         if (tcpRead(fd, buffer, MAXN) <= 0) {
@@ -91,15 +95,20 @@ void serverFunc(const int fd, ConnectInfo connectInfo) {
         }
         std::string command(buffer);
         if (command.find(msgREGISTER) == 0u) {
-            serverUtility.accountUtility(command);
+            serverUtility.accountUtility(command, serverData, accountLocker);
         }
         else if (command.find(msgLOGIN) == 0u) {
-            serverUtility.accountUtility(command);
+            serverUtility.accountUtility(command, serverData, accountLocker);
         }
-        else if (command.find(msgUpdateConnectInfo) == 0u) {
-            serverUtility.accountUtility(command);
+        else if (command.find(msgLOGOUT) == 0u) {
+            serverUtility.accountUtility(command, serverData, accountLocker);
+            break;
+        }
+        else if (command.find(msgUPDATECONNECTINFO) == 0u) {
+            serverUtility.accountUtility(command, serverData, accountLocker);
         }
     }
+    close(fd);
     lb::finishThread();
     printLog("%s port %d disconnected\n", connectInfo.address.c_str(), connectInfo.port);
 }

@@ -3,6 +3,7 @@
 
 #include <string>
 #include <vector>
+#include <map>
 
 enum class NPStage {
     WELCOME, MAIN
@@ -35,6 +36,10 @@ struct Account {
     bool isOnline;
     Account(const std::string& account = "", const std::string& password = "", const bool isOnline = false) :
         account(account), password(password), isOnline(isOnline) {}
+};
+
+struct ServerData {
+    std::map<std::string, Account> userData;
 };
 
 #endif // NETWORK_PROGRAMMING_NPTYPE_HPP_

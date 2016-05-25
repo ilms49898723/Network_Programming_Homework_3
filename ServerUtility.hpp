@@ -33,69 +33,79 @@ public:
 
     }
 
-    void accountUtility(const std::string& msg) {
-        std::lock_guard<std::mutex> lock(accountLocker);
+    void accountUtility(const std::string& msg, ServerData& data, std::mutex& locker) {
+        std::lock_guard<std::mutex> lock(locker);
         if (msg.find(msgREGISTER) == 0u) {
-            accountRegister(msg);
+            accountRegister(msg, data);
         }
         else if (msg.find(msgLOGIN) == 0u) {
-            accountLogin(msg);
+            accountLogin(msg, data);
         }
-        else if (msg.find(msgUpdateConnectInfo) == 0u) {
-            accountUpdateConnectInfo(msg);
+        else if (msg.find(msgLOGOUT) == 0u) {
+            accountLogout(msg, data);
+        }
+        else if (msg.find(msgUPDATECONNECTINFO) == 0u) {
+            accountUpdateConnectInfo(msg, data);
         }
     }
 
 private:
     // REGISTER account password
-    void accountRegister(const std::string& msg) {
+    void accountRegister(const std::string& msg, ServerData& data) {
         char account[MAXN];
         char password[MAXN];
         sscanf(msg.c_str() + msgREGISTER.length(), "%s%s", account, password);
-        if (userData.count(account)) {
+        if (data.userData.count(account)) {
             std::string reply = msgFAIL + " Account already exists";
             tcpWrite(fd, reply.c_str(), reply.length());
         }
         else {
             printLog("New account %s created\n", account);
-            userData.insert(std::make_pair(account, Account(account, password)));
+            data.userData.insert(std::make_pair(account, Account(account, password)));
             std::string reply = msgSUCCESS;
             tcpWrite(fd, reply.c_str(), reply.length());
         }
     }
 
     // LOGIN account password
-    void accountLogin(const std::string& msg) {
+    void accountLogin(const std::string& msg, ServerData& data) {
         char account[MAXN];
         char password[MAXN];
         sscanf(msg.c_str() + msgLOGIN.length(), "%s%s", account, password);
-        if (!userData.count(account) || userData.at(account).password != std::string(password)) {
+        if (!data.userData.count(account) || data.userData.at(account).password != std::string(password)) {
             std::string reply = msgFAIL + " Invalid account or password";
             tcpWrite(fd, reply.c_str(), reply.length());
         }
         else {
-            userData[account].isOnline = true;
+            nowAccount = account;
+            data.userData[account].isOnline = true;
             std::string reply = msgSUCCESS;
             tcpWrite(fd, reply.c_str(), reply.length());
         }
     }
 
-    // UPDATECONNECTIONINFO account port
-    void accountUpdateConnectInfo(const std::string& msg) {
-        char account[MAXN];
+    // LOGOUT
+    void accountLogout(const std::string& msg, ServerData& data) {
+        if (msg.find(msgLOGOUT) != 0u) {
+            return;
+        }
+        printLog("Account %s logout\n", nowAccount.c_str());
+        data.userData[nowAccount].isOnline = false;
+        nowAccount = "";
+    }
+
+    // UPDATECONNECTIONINFO port
+    void accountUpdateConnectInfo(const std::string& msg, ServerData& data) {
         int port;
-        sscanf(msg.c_str() + msgUpdateConnectInfo.length(), "%s%d", account, &port);
-        userData[account].connectInfo = ConnectInfo(connectInfo.address, port);
-        printLog("Account %s connection info updated. IP %s port %d\n", account, connectInfo.address.c_str(), port);
+        sscanf(msg.c_str() + msgUPDATECONNECTINFO.length(), "%d", &port);
+        data.userData[nowAccount].connectInfo = ConnectInfo(connectInfo.address, port);
+        printLog("Account %s info updated IP %s port %d\n", nowAccount.c_str(), connectInfo.address.c_str(), port);
     }
 
 private:
-    std::mutex accountLocker;
+    std::string nowAccount;
     ConnectInfo connectInfo;
     int fd;
-
-private:
-    std::map<std::string, Account> userData;
 };
 
 #endif // NETWORK_PROGRAMMING_SERVERUTILITY_HPP_

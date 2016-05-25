@@ -32,7 +32,6 @@ int p2pserverInit();
 void p2pserverAccept(const int listenfd);
 void p2pserverFunc(int fd, ConnectInfo connectInfo);
 
-
 int main(int argc, const char** argv) {
     lb::setLogEnabled(false);
     lb::threadManageInit();
@@ -86,6 +85,13 @@ void clientFunc(const ConnectData& server) {
                     clientUtility.printMessage("Invalid command", true);
                 }
                 break;
+            case 1: // MAIN
+                if (command == "L") {
+                    clientUtility.logout();
+                }
+                else {
+                    clientUtility.printMessage("Invalid command", true);
+                }
             default:
                 break;
         }
