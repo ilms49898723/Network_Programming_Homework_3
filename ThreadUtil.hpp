@@ -74,7 +74,9 @@ void threadMaintain() {
 
 void pushThread(std::thread&& item) {
     threadLocker.lock();
-    printLog("Thread id %s started\n", getThreadIdStr(item.get_id()).c_str());
+    if (logEnabled) {
+        printLog("Thread id %s started\n", getThreadIdStr(item.get_id()).c_str());
+    }
     threads.push_back(std::make_pair(std::move(item), true));
     threadLocker.unlock();
 }

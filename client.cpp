@@ -40,10 +40,14 @@ int main(int argc, const char** argv) {
     mkdir("Client", 0777);
     ConnectInfo connectInfo = parseArgument(argc, argv);
     ConnectData server = newConnection(connectInfo);
+    if (server.fd < 0) {
+        lb::joinAll();
+        return EXIT_FAILURE;
+    }
     p2pPort = p2pserverInit();
     clientFunc(server);
     lb::joinAll();
-    return 0;
+    return EXIT_SUCCESS;
 }
 
 ConnectInfo parseArgument(const int& argc, const char**& argv) {
@@ -102,6 +106,9 @@ void clientFunc(const ConnectData& server) {
                 }
                 else if (command == "SF") {
                     clientUtility.showFileList();
+                }
+                else if (command == "SE") {
+                    clientUtility.updateFileList();
                 }
                 else {
                     clientUtility.printMessage("Invalid command", true);

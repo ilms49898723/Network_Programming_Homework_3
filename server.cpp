@@ -33,6 +33,10 @@ int main(int argc, const char** argv) {
     lb::threadManageInit();
     int port = parseArgument(argc, argv);
     int listenfd = newServer(port);
+    if (listenfd < 0) {
+        lb::joinAll();
+        return EXIT_FAILURE;
+    }
     while (lb::isValid()) {
         fd_set fdset;
         FD_ZERO(&fdset);
@@ -46,7 +50,7 @@ int main(int argc, const char** argv) {
             if (errno == EINTR) {
                 continue;
             }
-            fprintf(stderr, "select(): %s\n", strerror(errno));
+            fprintf(stderr, "select: %s\n", strerror(errno));
             exit(EXIT_FAILURE);
         }
         if (FD_ISSET(fileno(stdin), &fdset)) {
@@ -68,7 +72,7 @@ int main(int argc, const char** argv) {
         }
     }
     lb::joinAll();
-    return 0;
+    return EXIT_SUCCESS;
 }
 
 int parseArgument(int argc, const char** argv) {

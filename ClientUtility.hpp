@@ -182,15 +182,17 @@ public:
         }
         dirent *dirst;
         std::string info = msgUPDATEFILELIST;
+        std::string msg;
         while ((dirst = readdir(dir))) {
             if (dirst->d_type == DT_DIR) {
                 continue;
             }
             info += std::string(" ") + std::string(dirst->d_name);
+            msg += "    " + std::string(dirst->d_name);
         }
         closedir(dir);
         tcpWrite(fd, info.c_str(), info.length());
-        printMessage(lastmsg + "\n\nFile List updated!");
+        printMessage(std::string("File List updated!\n") + msg);
     }
 
     void showFileList() {
