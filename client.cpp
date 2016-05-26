@@ -104,50 +104,50 @@ void clientFunc(const ConnectData& server) {
                 break;
             }
             switch (static_cast<int>(clientUtility.getStage())) {
-            case 0: // WELCOME
-                if (command == "R") {
-                    clientUtility.newAccount();
-                }
-                else if (command == "L") {
-                    clientUtility.login();
-                }
-                else {
-                    clientUtility.printMessage("Invalid command", true);
-                }
-                break;
-            case 1: // MAIN
-                if (command == "L") {
-                    clientUtility.logout();
-                }
-                else if (command == "DA") {
-                    clientUtility.deleteAccount();
-                }
-                else if (command == "SU") {
-                    clientUtility.showUser();
-                }
-                else if (command == "SF") {
-                    clientUtility.showFileList();
-                }
-                else if (command == "SE") {
-                    clientUtility.updateFileList();
-                }
-                else if (command == "R") {
-                    clientUtility.getFileList();
-                }
-                else if (command == "C") {
-                    clientUtility.chat();
-                }
-                else if (command == "U") {
-                    clientUtility.upload();
-                }
-                else if (command == "D") {
-                    clientUtility.download();
-                }
-                else {
-                    clientUtility.printMessage("Invalid command", true);
-                }
-            default:
-                break;
+                case 0: // WELCOME
+                    if (command == "R") {
+                        clientUtility.newAccount();
+                    }
+                    else if (command == "L") {
+                        clientUtility.login();
+                    }
+                    else {
+                        clientUtility.printMessage("Invalid command", true);
+                    }
+                    break;
+                case 1: // MAIN
+                    if (command == "L") {
+                        clientUtility.logout();
+                    }
+                    else if (command == "DA") {
+                        clientUtility.deleteAccount();
+                    }
+                    else if (command == "SU") {
+                        clientUtility.showUser();
+                    }
+                    else if (command == "SF") {
+                        clientUtility.showFileList();
+                    }
+                    else if (command == "SE") {
+                        clientUtility.updateFileList();
+                    }
+                    else if (command == "R") {
+                        clientUtility.getFileList();
+                    }
+                    else if (command == "C") {
+                        clientUtility.chat();
+                    }
+                    else if (command == "U") {
+                        clientUtility.upload();
+                    }
+                    else if (command == "D") {
+                        clientUtility.download();
+                    }
+                    else {
+                        clientUtility.printMessage("Invalid command", true);
+                    }
+                default:
+                    break;
             }
         }
         bool isServerAlive = clientUtility.checkConnection();
