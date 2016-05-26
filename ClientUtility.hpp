@@ -45,9 +45,9 @@ public:
         stage = NPStage::WELCOME;
     }
 
-    void printMessage(const std::string& msg, const bool isErrorMsg = false) {
+    void printMessage(const std::string& msg, const bool isNotification = false) {
         flushScreen();
-        if (!isErrorMsg) {
+        if (!isNotification) {
             printf("\n%s\n\n", msg.c_str());
             lastmsg = msg;
         }
