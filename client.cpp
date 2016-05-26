@@ -137,6 +137,12 @@ void clientFunc(const ConnectData& server) {
                 else if (command == "C") {
                     clientUtility.chat();
                 }
+                else if (command == "U") {
+                    clientUtility.upload();
+                }
+                else if (command == "D") {
+                    clientUtility.download();
+                }
                 else {
                     clientUtility.printMessage("Invalid command", true);
                 }

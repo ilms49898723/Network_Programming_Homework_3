@@ -328,7 +328,7 @@ public:
     }
 
     void upload() {
-
+        char options[MAXN];
     }
 
     void download() {
