@@ -61,6 +61,9 @@ public:
         else if (msg.find(msgCHATREQUEST) == 0u) {
             accountSendConnectInfo(msg, data);
         }
+        else if (msg.find(msgGETUSERCONN) == 0u) {
+            accountGetConnectInfo(msg, data);
+        }
     }
 
     void fileListUtility(const std::string& msg, ServerData& data) {
@@ -131,26 +134,7 @@ private:
             return;
         }
         data.userData.erase(nowAccount);
-        for (auto& item : data.fileData) {
-            item.second.owner.erase(nowAccount);
-        }
-        while (true) {
-            bool flag = false;
-            std::string filename;
-            for (auto& item : data.fileData) {
-                if (item.second.owner.empty()) {
-                    filename = item.first;
-                    flag = true;
-                    break;
-                }
-            }
-            if (flag) {
-                data.fileData.erase(filename);
-            }
-            else {
-                break;
-            }
-        }
+        cleanAccountFileList(nowAccount, data);
         printLog("Account %s was deleted\n", nowAccount.c_str());
         nowAccount = "";
     }
@@ -187,6 +171,7 @@ private:
     void accountSendConnectInfo(const std::string& msg, ServerData& data) {
         char account[MAXN];
         sscanf(msg.c_str() + msgCHATREQUEST.length(), "%s", account);
+        printLog("%s requested connection info of account %s\n", nowAccount.c_str(), account);
         if (!data.userData.count(account)) {
             std::string reply = msgFAIL + " User not found";
             tcpWrite(fd, reply);
@@ -203,8 +188,30 @@ private:
         }
     }
 
+    // GETUSERCONN account
+    void accountGetConnectInfo(const std::string& msg, ServerData& data) {
+        char account[MAXN];
+        sscanf(msg.c_str() + msgGETUSERCONN.length(), "%s", account);
+        printLog("%s requested connection info of account %s\n", nowAccount.c_str(), account);
+        if (!data.userData.count(account)) {
+            std::string reply = msgFAIL + " User not found";
+            tcpWrite(fd, reply);
+        }
+        else if (!data.userData[account].isOnline) {
+            std::string reply = msgFAIL + " User is not online";
+            tcpWrite(fd, reply);
+        }
+        else {
+            std::string reply = msgSUCCESS + " " +
+                                data.userData[account].connectInfo.address + " " +
+                                std::to_string(data.userData[account].connectInfo.port);
+            tcpWrite(fd, reply);
+        }
+    }
+
     // UPDATEFILELIST [files ...]
     void fileListUpdate(const std::string& msg, ServerData& data) {
+        cleanAccountFileList(nowAccount, data);
         std::istringstream iss(msg.c_str() + msgUPDATEFILELIST.length());
         std::string filename;
         unsigned long filesize;
@@ -249,6 +256,30 @@ private:
                 }
             }
             tcpWrite(fd, reply);
+        }
+    }
+
+private:
+    void cleanAccountFileList(const std::string account, ServerData& data) {
+        for (auto& item : data.fileData) {
+            item.second.owner.erase(account);
+        }
+        while (true) {
+            bool flag = false;
+            std::string filename;
+            for (auto& item : data.fileData) {
+                if (item.second.owner.empty()) {
+                    filename = item.first;
+                    flag = true;
+                    break;
+                }
+            }
+            if (flag) {
+                data.fileData.erase(filename);
+            }
+            else {
+                break;
+            }
         }
     }
 

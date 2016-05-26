@@ -18,10 +18,14 @@ const std::string msgUPDATEFILELIST = "UPDATEFILELIST";
 
 const std::string msgSHOWUSER = "SHOWUSER";
 const std::string msgSHOWFILELIST = "SHOWFILELIST";
+const std::string msgGETUSERCONN = "GETUSERCONN";
 const std::string msgGETFILELIST = "GETFILELIST";
 
 const std::string msgCHATREQUEST = "CHATREQUEST";
 const std::string msgMESSAGE = "MESSAGE";
+
+const std::string msgFILEREAD = "FILEREAD";
+const std::string msgFILEWRITE = "FILEWRITE";
 
 const std::string msgSUCCESS = "Success!";
 const std::string msgFAIL = "Failed!";

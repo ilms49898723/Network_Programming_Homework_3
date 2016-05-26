@@ -29,6 +29,7 @@ public:
         this->p2pPort = -1;
         this->terminalRow = -1;
         this->terminalCol = -1;
+        this->needUpdateDir = false;
         stage = NPStage::WELCOME;
     }
 
@@ -73,6 +74,14 @@ public:
         printMessage(lastmsg);
     }
 
+    void setNeedUpdateDir() {
+        needUpdateDir = true;
+    }
+
+    std::string getLastmsg() const {
+        return lastmsg;
+    }
+
 public:
     bool checkConnection() {
         char buffer[MAXN];
@@ -86,6 +95,13 @@ public:
         tcpWrite(specfd, msgCHECKCONNECT);
         tcpRead(specfd, buffer, MAXN);
         return std::string(buffer) == msgCHECKCONNECT;
+    }
+
+    void updateDir() {
+        if (needUpdateDir && nowAccount != "") {
+            updateFileList(true);
+        }
+        needUpdateDir = false;
     }
 
     void newAccount() {
@@ -196,7 +212,7 @@ public:
         tcpWrite(fd, info);
     }
 
-    void updateFileList() {
+    void updateFileList(bool silent = false) {
         DIR* dir = opendir("Client");
         if (!dir) {
             printMessage("Cannot open directory Client", true);
@@ -219,7 +235,9 @@ public:
         }
         closedir(dir);
         tcpWrite(fd, info);
-        printMessage(std::string("File List updated!\n") + msg);
+        if (!silent) {
+            printMessage(std::string("File List updated!\n") + msg);
+        }
     }
 
     void getFileList() {
@@ -328,7 +346,79 @@ public:
     }
 
     void upload() {
-        char options[MAXN];
+        char account[MAXN];
+        char filename[MAXN];
+        printf("Account: ");
+        if (fgets(account, MAXN, stdin) == NULL) {
+            printPrevious();
+            return;
+        }
+        trimNewLine(account);
+        printf("Filename: ");
+        if (fgets(filename, MAXN, stdin) == NULL) {
+            printPrevious();
+            return;
+        }
+        trimNewLine(filename);
+        std::string filepath = std::string("./Client/") + filename;
+        std::string info = msgGETUSERCONN + " " + account;
+        tcpWrite(fd, info);
+        char buffer[MAXN];
+        tcpRead(fd, buffer, MAXN);
+        if (std::string(buffer).find(msgFAIL) == 0u) {
+            printMessage(buffer, true);
+            return;
+        }
+        char address[MAXN];
+        int port;
+        sscanf(buffer + msgSUCCESS.length(), "%s%d", address, &port);
+        struct stat fileStat;
+        if (stat(filepath.c_str(), &fileStat) < 0) {
+            std::string errMsg = std::string(filename) + ": " + strerror(errno);
+            printMessage(errMsg, true);
+            return;
+        }
+        FILE* fp = fopen(filepath.c_str(), "rb");
+        if (!fp) {
+            std::string errMsg = std::string(filename) + ": " + strerror(errno);
+            printMessage(errMsg, true);
+            return;
+        }
+        ConnectData target = newConnection(ConnectInfo(address, port));
+        if (target.fd < 0) {
+            printMessage("Connect Error", true);
+            fclose(fp);
+            return;
+        }
+        info = msgFILEWRITE + " " + filename + " " + std::to_string(fileStat.st_size);
+        tcpWrite(target.fd, info);
+        tcpRead(target.fd, buffer, MAXN);
+        if (std::string(buffer).find(msgFAIL) == 0u) {
+            printMessage(buffer, true);
+            fclose(fp);
+            close(target.fd);
+            return;
+        }
+        unsigned long fileSize = fileStat.st_size;
+        unsigned long byteSend = 0;
+        while (byteSend < fileSize) {
+            char content[MAXN];
+            int n = fread(content, sizeof(char), MAXN, fp);
+            if (tcpWritePure(target.fd, content, n) <= 0) {
+                printMessage(msgDISCONNECTED, true);
+                break;
+            }
+            if (tcpRead(target.fd, content, n) <= 0) {
+                printMessage(msgDISCONNECTED, true);
+                break;
+            }
+            byteSend += n;
+        }
+        fclose(fp);
+        close(target.fd);
+        if (byteSend == fileSize) {
+            printMessage("Upload Successfully!");
+        }
     }
 
     void download() {
@@ -403,7 +493,6 @@ private:
         return ret;
     }
 
-
 private:
     ClientData clientData;
     std::string nowAccount;
@@ -411,6 +500,7 @@ private:
     NPStage stage;
     int fd;
     int p2pPort;
+    bool needUpdateDir;
 
 private:
     int terminalRow;

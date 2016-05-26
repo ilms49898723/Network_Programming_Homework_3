@@ -156,6 +156,7 @@ void clientFunc(const ConnectData& server) {
             putc('\n', stdout);
             break;
         }
+        clientUtility.updateDir();
     }
     close(server.fd);
 }
@@ -203,19 +204,68 @@ void p2pServerAccept(const int listenfd) {
 void p2pServerFunc(const int fd) {
     char buffer[MAXN];
     while (lb::isValid()) {
-        if (tcpRead(fd, buffer, MAXN) <= 0) {
-            break;
+        fd_set fdset;
+        FD_ZERO(&fdset);
+        FD_SET(fd, &fdset);
+        timeval tv;
+        tv.tv_sec = 0;
+        tv.tv_usec = 200000;
+        int nready = select(fd + 1, &fdset, NULL, NULL, &tv);
+        if (nready < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            fprintf(stderr, "select: %s\n", strerror(errno));
+            exit(EXIT_FAILURE);
         }
-        std::string command(buffer);
-        if (command.find(msgCHECKCONNECT) == 0u) {
-            tcpWrite(fd, msgCHECKCONNECT);
-        }
-        else if (command.find(msgMESSAGE) == 0u) {
-            char account[MAXN];
-            sscanf(command.c_str() + msgMESSAGE.length(), "%s", account);
-            unsigned offset = msgMESSAGE.length() + 1 + std::string(account).length() + 1;
-            std::string content(command.c_str() + offset);
-            clientUtility.pushMessage(account, content);
+        if (FD_ISSET(fd, &fdset)) {
+            if (tcpRead(fd, buffer, MAXN) <= 0) {
+                break;
+            }
+            std::string command(buffer);
+            if (command.find(msgCHECKCONNECT) == 0u) {
+                tcpWrite(fd, msgCHECKCONNECT);
+            }
+            else if (command.find(msgMESSAGE) == 0u) {
+                char account[MAXN];
+                sscanf(command.c_str() + msgMESSAGE.length(), "%s", account);
+                unsigned offset = msgMESSAGE.length() + 1 + std::string(account).length() + 1;
+                std::string content(command.c_str() + offset);
+                clientUtility.pushMessage(account, content);
+            }
+            else if (command.find(msgFILEWRITE) == 0u) {
+                char filename[MAXN];
+                std::string filepath;
+                unsigned long fileSize;
+                sscanf(command.c_str() + msgFILEWRITE.length(), "%s%lu", filename, &fileSize);
+                filepath = std::string("./Client/") + filename;
+                FILE* fp = fopen(filepath.c_str(), "wb");
+                if (!fp) {
+                    std::string errMsg = msgFAIL + " Server: " +filename + " " + strerror(errno);
+                    tcpWrite(fd, errMsg);
+                    break;
+                }
+                tcpWrite(fd, msgSUCCESS);
+                unsigned long byteRead = 0;
+                while (byteRead < fileSize) {
+                    char content[MAXN];
+                    int n = tcpRead(fd, content, MAXN);
+                    if (n <= 0) {
+                        break;
+                    }
+                    fwrite(content, sizeof(char), n, fp);
+                    tcpWrite(fd, msgSUCCESS);
+                    byteRead += n;
+                }
+                fclose(fp);
+                if (byteRead != fileSize) {
+                    remove(filepath.c_str());
+                }
+                else {
+                    clientUtility.setNeedUpdateDir();
+                }
+                break;
+            }
         }
     }
     close(fd);

@@ -129,6 +129,14 @@ int tcpWrite(const int fd, const std::string& msg) {
     return tcpWrite(fd, msg.c_str(), msg.length());
 }
 
+int tcpWritePure(const int fd, const char* data, const size_t n) {
+    int m = write(fd, data, n);
+    if (m < 0) {
+        printLog("write: %s\n", strerror(errno));
+    }
+    return m;
+}
+
 int tcpRead(const int fd, char* buffer, const size_t n) {
     memset(buffer, 0, sizeof(char) * n);
     int m = read(fd, buffer, n);

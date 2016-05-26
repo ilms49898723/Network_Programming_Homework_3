@@ -126,7 +126,8 @@ void serverFunc(const int fd, ConnectInfo connectInfo) {
                      command.find(msgDELETEACCOUNT) == 0u ||
                      command.find(msgUPDATECONNECTINFO) == 0u ||
                      command.find(msgSHOWUSER) == 0u ||
-                     command.find(msgCHATREQUEST) == 0u) {
+                     command.find(msgCHATREQUEST) == 0u ||
+                     command.find(msgGETUSERCONN) == 0u) {
                 serverUtility.accountUtility(command, serverData);
             }
             else if (command.find(msgUPDATEFILELIST) == 0u ||
