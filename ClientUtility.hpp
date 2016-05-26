@@ -222,6 +222,26 @@ public:
         printMessage(std::string("File List updated!\n") + msg);
     }
 
+    void getFileList() {
+        char account[MAXN];
+        printf("Account: ");
+        if (fgets(account, MAXN, stdin) == NULL) {
+            printPrevious();
+            return;
+        }
+        trimNewLine(account);
+        std::string msg = msgGETFILELIST + " " + account;
+        tcpWrite(fd, msg);
+        char buffer[MAXN];
+        tcpRead(fd, buffer, MAXN);
+        if (std::string(buffer).find(msgFAIL) == 0u) {
+            printMessage(buffer, true);
+        }
+        else {
+            printMessage(buffer);
+        }
+    }
+
     void showFileList() {
         std::string info = msgSHOWFILELIST;
         tcpWrite(fd, info);
@@ -305,6 +325,14 @@ public:
         }
         printMessage("Exited", true);
         close(target.fd);
+    }
+
+    void upload() {
+
+    }
+
+    void download() {
+
     }
 
 public:

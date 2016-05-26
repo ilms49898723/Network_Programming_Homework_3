@@ -131,6 +131,9 @@ void clientFunc(const ConnectData& server) {
                 else if (command == "SE") {
                     clientUtility.updateFileList();
                 }
+                else if (command == "R") {
+                    clientUtility.getFileList();
+                }
                 else if (command == "C") {
                     clientUtility.chat();
                 }

@@ -56,11 +56,12 @@ void threadMaintain() {
             for (auto it = threads.begin(); it != threads.end(); ++it) {
                 if (!it->second) {
                     flag = true;
-                    if (logEnabled) {
-                        printLog("Thread id %s finished\n", getThreadIdStr(it->first.get_id()).c_str());
-                    }
+                    std::string threadIdStr = getThreadIdStr(it->first.get_id());
                     it->first.join();
                     threads.erase(it);
+                    if (logEnabled) {
+                        printLog("Thread id %s finished\n", threadIdStr.c_str());
+                    }
                     break;
                 }
             }

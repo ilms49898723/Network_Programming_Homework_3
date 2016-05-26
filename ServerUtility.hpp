@@ -71,6 +71,9 @@ public:
         else if (msg.find(msgSHOWFILELIST) == 0u) {
             fileListShow(msg, data);
         }
+        else if (msg.find(msgGETFILELIST) == 0u) {
+            fileListGet(msg, data);
+        }
     }
 
 private:
@@ -227,6 +230,26 @@ private:
             }
         }
         tcpWrite(fd, reply);
+    }
+
+    // GETFILELIST account
+    void fileListGet(const std::string& msg, ServerData& data) {
+        char account[MAXN];
+        sscanf(msg.c_str() + msgGETFILELIST.length(), "%s", account);
+        if (!data.userData.count(account)) {
+            std::string reply = msgFAIL + " User not found";
+            tcpWrite(fd, reply);
+        }
+        else {
+            std::string reply = std::string("Account: ") + account;
+            reply += std::string(" ") + (data.userData[account].isOnline ? "[Online]" : "[Offline]") + "\n";
+            for (auto& item : data.fileData) {
+                if (item.second.owner.count(account)) {
+                    reply += "    " + item.first + " (" + std::to_string(item.second.size) + " bytes)\n";
+                }
+            }
+            tcpWrite(fd, reply);
+        }
     }
 
 private:

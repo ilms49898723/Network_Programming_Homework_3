@@ -96,27 +96,44 @@ void serverFunc(const int fd, ConnectInfo connectInfo) {
     ServerUtility serverUtility(fd, connectInfo);
     printLog("New connection from %s port %d\n", connectInfo.address.c_str(), connectInfo.port);
     char buffer[MAXN];
-    while (serverUtility.isValid()) {
-        if (tcpRead(fd, buffer, MAXN) <= 0) {
-            serverUtility.accountUtility(msgLOGOUT, serverData);
+    while (serverUtility.isValid() && lb::isValid()) {
+        fd_set fdset;
+        FD_ZERO(&fdset);
+        FD_SET(fd, &fdset);
+        timeval tv;
+        tv.tv_sec = 0;
+        tv.tv_usec = 200000;
+        int nready = select(fd + 1, &fdset, NULL, NULL, &tv);
+        if (nready < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            printLog("select: %s\n", strerror(errno));
             break;
         }
-        std::string command(buffer);
-        if (command.find(msgCHECKCONNECT) == 0u) {
-            tcpWrite(fd, msgCHECKCONNECT);
-        }
-        else if (command.find(msgREGISTER) == 0u ||
-            command.find(msgLOGIN) == 0u ||
-            command.find(msgLOGOUT) == 0u ||
-            command.find(msgDELETEACCOUNT) == 0u ||
-            command.find(msgUPDATECONNECTINFO) == 0u ||
-            command.find(msgSHOWUSER) == 0u ||
-            command.find(msgCHATREQUEST) == 0u) {
-            serverUtility.accountUtility(command, serverData);
-        }
-        else if (command.find(msgUPDATEFILELIST) == 0u ||
-                 command.find(msgSHOWFILELIST) == 0u) {
-            serverUtility.fileListUtility(command, serverData);
+        if (FD_ISSET(fd, &fdset)) {
+            if (tcpRead(fd, buffer, MAXN) <= 0) {
+                serverUtility.accountUtility(msgLOGOUT, serverData);
+                break;
+            }
+            std::string command(buffer);
+            if (command.find(msgCHECKCONNECT) == 0u) {
+                tcpWrite(fd, msgCHECKCONNECT);
+            }
+            else if (command.find(msgREGISTER) == 0u ||
+                     command.find(msgLOGIN) == 0u ||
+                     command.find(msgLOGOUT) == 0u ||
+                     command.find(msgDELETEACCOUNT) == 0u ||
+                     command.find(msgUPDATECONNECTINFO) == 0u ||
+                     command.find(msgSHOWUSER) == 0u ||
+                     command.find(msgCHATREQUEST) == 0u) {
+                serverUtility.accountUtility(command, serverData);
+            }
+            else if (command.find(msgUPDATEFILELIST) == 0u ||
+                     command.find(msgSHOWFILELIST) == 0u ||
+                     command.find(msgGETFILELIST) == 0u) {
+                serverUtility.fileListUtility(command, serverData);
+            }
         }
     }
     close(fd);

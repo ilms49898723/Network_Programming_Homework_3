@@ -18,6 +18,7 @@ const std::string msgUPDATEFILELIST = "UPDATEFILELIST";
 
 const std::string msgSHOWUSER = "SHOWUSER";
 const std::string msgSHOWFILELIST = "SHOWFILELIST";
+const std::string msgGETFILELIST = "GETFILELIST";
 
 const std::string msgCHATREQUEST = "CHATREQUEST";
 const std::string msgMESSAGE = "MESSAGE";
