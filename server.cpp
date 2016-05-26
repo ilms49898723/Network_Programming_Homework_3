@@ -102,7 +102,10 @@ void serverFunc(const int fd, ConnectInfo connectInfo) {
             break;
         }
         std::string command(buffer);
-        if (command.find(msgREGISTER) == 0u ||
+        if (command.find(msgCHECKCONNECT) == 0u) {
+            tcpWrite(fd, msgCHECKCONNECT);
+        }
+        else if (command.find(msgREGISTER) == 0u ||
             command.find(msgLOGIN) == 0u ||
             command.find(msgLOGOUT) == 0u ||
             command.find(msgDELETEACCOUNT) == 0u ||

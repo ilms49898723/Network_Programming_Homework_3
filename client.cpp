@@ -72,23 +72,38 @@ void clientFunc(const ConnectData& server) {
     clientUtility.setStage(NPStage::WELCOME);
     clientUtility.printMessage("Welcome!");
     while (true) {
-        if (fgets(buffer, MAXN, stdin) == NULL) {
-            clientUtility.printPrevious();
-            continue;
-        }
-        trimNewLine(buffer);
-        toUpperString(buffer);
-        std::string command(buffer);
-        if (command == "") {
-            clientUtility.printPrevious();
-            continue;
-        }
-        if (command == "Q" || command == "QUIT") {
-            clientUtility.logout();
-            printf("\n");
+        fd_set fdset;
+        FD_ZERO(&fdset);
+        FD_SET(fileno(stdin), &fdset);
+        timeval tv;
+        tv.tv_sec = 1;
+        tv.tv_usec = 0;
+        int nready = select(fileno(stdin) + 1, &fdset, NULL, NULL, &tv);
+        if (nready < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            fprintf(stderr, "select: %s\n", strerror(errno));
             break;
         }
-        switch (static_cast<int>(clientUtility.getStage())) {
+        if (FD_ISSET(fileno(stdin), &fdset)) {
+            if (fgets(buffer, MAXN, stdin) == NULL) {
+                clientUtility.printPrevious();
+                continue;
+            }
+            trimNewLine(buffer);
+            toUpperString(buffer);
+            std::string command(buffer);
+            if (command == "") {
+                clientUtility.printPrevious();
+                continue;
+            }
+            if (command == "Q" || command == "QUIT") {
+                clientUtility.logout();
+                printf("\n");
+                break;
+            }
+            switch (static_cast<int>(clientUtility.getStage())) {
             case 0: // WELCOME
                 if (command == "R") {
                     clientUtility.newAccount();
@@ -124,6 +139,13 @@ void clientFunc(const ConnectData& server) {
                 }
             default:
                 break;
+            }
+        }
+        bool isServerAlive = clientUtility.checkConnection();
+        if (!isServerAlive) {
+            clientUtility.printMessage(msgDISCONNECTED, true);
+            putc('\n', stdout);
+            break;
         }
     }
     close(server.fd);
@@ -176,7 +198,10 @@ void p2pServerFunc(const int fd) {
             break;
         }
         std::string command(buffer);
-        if (command.find(msgMESSAGE) == 0u) {
+        if (command.find(msgCHECKCONNECT) == 0u) {
+            tcpWrite(fd, msgCHECKCONNECT);
+        }
+        else if (command.find(msgMESSAGE) == 0u) {
             char account[MAXN];
             sscanf(command.c_str() + msgMESSAGE.length(), "%s", account);
             unsigned offset = msgMESSAGE.length() + 1 + std::string(account).length() + 1;

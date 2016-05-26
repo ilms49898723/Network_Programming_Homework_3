@@ -74,6 +74,20 @@ public:
     }
 
 public:
+    bool checkConnection() {
+        char buffer[MAXN];
+        tcpWrite(fd, msgCHECKCONNECT);
+        tcpRead(fd, buffer, MAXN);
+        return std::string(buffer) == msgCHECKCONNECT;
+    }
+
+    bool checkConnection(int specfd) {
+        char buffer[MAXN];
+        tcpWrite(specfd, msgCHECKCONNECT);
+        tcpRead(specfd, buffer, MAXN);
+        return std::string(buffer) == msgCHECKCONNECT;
+    }
+
     void newAccount() {
         char account[MAXN];
         char password[MAXN];
@@ -105,7 +119,7 @@ public:
             return;
         }
         std::string msg = msgREGISTER + " " + account + " " + password;
-        tcpWrite(fd, msg.c_str(), msg.length());
+        tcpWrite(fd, msg);
         char buffer[MAXN];
         tcpRead(fd, buffer, MAXN);
         printMessage(buffer);
@@ -121,7 +135,7 @@ public:
         trimNewLine(buffer);
         if (std::string(buffer) == "yes") {
             std::string info = msgDELETEACCOUNT;
-            tcpWrite(fd, info.c_str(), info.length());
+            tcpWrite(fd, info);
             stage = NPStage::WELCOME;
             nowAccount = "";
             printMessage("Success!");
@@ -151,7 +165,7 @@ public:
             return;
         }
         std::string msg = msgLOGIN + " " + account + " " + password;
-        tcpWrite(fd, msg.c_str(), msg.length());
+        tcpWrite(fd, msg);
         char buffer[MAXN];
         tcpRead(fd, buffer, MAXN);
         if (std::string(buffer).find(msgSUCCESS) == 0u) {
@@ -171,7 +185,7 @@ public:
             return;
         }
         std::string info = msgLOGOUT;
-        tcpWrite(fd, info.c_str(), info.length());
+        tcpWrite(fd, info);
         nowAccount = "";
         stage = NPStage::WELCOME;
         printMessage("Logout Success");
@@ -179,7 +193,7 @@ public:
 
     void updateConnectInfo() {
         std::string info = msgUPDATECONNECTINFO + " " + std::to_string(p2pPort);
-        tcpWrite(fd, info.c_str(), info.length());
+        tcpWrite(fd, info);
     }
 
     void updateFileList() {
@@ -204,13 +218,13 @@ public:
             msg += "    " + std::string(dirst->d_name) + " (" + std::to_string(st.st_size) + " bytes)\n";
         }
         closedir(dir);
-        tcpWrite(fd, info.c_str(), info.length());
+        tcpWrite(fd, info);
         printMessage(std::string("File List updated!\n") + msg);
     }
 
     void showFileList() {
         std::string info = msgSHOWFILELIST;
-        tcpWrite(fd, info.c_str(), info.length());
+        tcpWrite(fd, info);
         char buffer[MAXN];
         tcpRead(fd, buffer, MAXN);
         printMessage(buffer);
@@ -218,7 +232,7 @@ public:
 
     void showUser() {
         std::string info = msgSHOWUSER;
-        tcpWrite(fd, info.c_str(), info.length());
+        tcpWrite(fd, info);
         char buffer[MAXN];
         tcpRead(fd, buffer, MAXN);
         printMessage(buffer);
@@ -233,14 +247,13 @@ public:
         }
         trimNewLine(account);
         std::string info = msgCHATREQUEST + " " + account;
-        tcpWrite(fd, info.c_str(), info.length());
+        tcpWrite(fd, info);
         char buffer[MAXN];
         tcpRead(fd, buffer, MAXN);
         if (std::string(buffer).find(msgSUCCESS) != 0u) {
             printMessage(buffer, true);
             return;
         }
-        printMessage(buffer);
         char address[MAXN];
         int port;
         sscanf(buffer + msgSUCCESS.length(), "%s%d", address, &port);
@@ -253,6 +266,7 @@ public:
         printf("Chat to %s\n", account);
         printf("Press ^D to exit\n");
         printSplitLine();
+        int checkConnCnt = 0;
         while (true) {
             fd_set fdset;
             FD_ZERO(&fdset);
@@ -275,11 +289,21 @@ public:
                 }
                 trimNewLine(content);
                 std::string msg = msgMESSAGE + " " + nowAccount + " " + content;
-                tcpWrite(target.fd, msg.c_str(), msg.length());
+                tcpWrite(target.fd, msg);
+            }
+            ++checkConnCnt;
+            if (checkConnCnt > 5) {
+                checkConnCnt = 0;
+                bool isTargetAlive = checkConnection(target.fd);
+                if (!isTargetAlive) {
+                    printMessage(msgDISCONNECTED, true);
+                    close(target.fd);
+                    return;
+                }
             }
             flushMessage(account);
         }
-        printMessage("Exited");
+        printMessage("Exited", true);
         close(target.fd);
     }
 

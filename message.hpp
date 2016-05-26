@@ -25,4 +25,7 @@ const std::string msgMESSAGE = "MESSAGE";
 const std::string msgSUCCESS = "Success!";
 const std::string msgFAIL = "Failed!";
 
+const std::string msgCHECKCONNECT = "CHECKCONNECTION";
+const std::string msgDISCONNECTED = "Connection terminated!";
+
 #endif // NETWORK_PROGRAMMING_MESSAGE_HPP_

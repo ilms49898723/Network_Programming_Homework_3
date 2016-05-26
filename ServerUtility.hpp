@@ -81,13 +81,13 @@ private:
         sscanf(msg.c_str() + msgREGISTER.length(), "%s%s", account, password);
         if (data.userData.count(account)) {
             std::string reply = msgFAIL + " Account already exists";
-            tcpWrite(fd, reply.c_str(), reply.length());
+            tcpWrite(fd, reply);
         }
         else {
             printLog("New account %s created\n", account);
             data.userData.insert(std::make_pair(account, Account(account, password)));
             std::string reply = msgSUCCESS;
-            tcpWrite(fd, reply.c_str(), reply.length());
+            tcpWrite(fd, reply);
         }
     }
 
@@ -98,17 +98,17 @@ private:
         sscanf(msg.c_str() + msgLOGIN.length(), "%s%s", account, password);
         if (!data.userData.count(account) || data.userData.at(account).password != std::string(password)) {
             std::string reply = msgFAIL + " Invalid account or password";
-            tcpWrite(fd, reply.c_str(), reply.length());
+            tcpWrite(fd, reply);
         }
         else if (data.userData.at(account).isOnline) {
             std::string reply = msgFAIL + " Already online, please log out first";
-            tcpWrite(fd, reply.c_str(), reply.length());
+            tcpWrite(fd, reply);
         }
         else {
             nowAccount = account;
             data.userData[account].isOnline = true;
             std::string reply = msgSUCCESS;
-            tcpWrite(fd, reply.c_str(), reply.length());
+            tcpWrite(fd, reply);
         }
     }
 
@@ -177,7 +177,7 @@ private:
                 reply += formatBuffer;
             }
         }
-        tcpWrite(fd, reply.c_str(), reply.length());
+        tcpWrite(fd, reply);
     }
 
     // CHATREQUEST account
@@ -186,17 +186,17 @@ private:
         sscanf(msg.c_str() + msgCHATREQUEST.length(), "%s", account);
         if (!data.userData.count(account)) {
             std::string reply = msgFAIL + " User not found";
-            tcpWrite(fd, reply.c_str(), reply.length());
+            tcpWrite(fd, reply);
         }
         else if (!data.userData[account].isOnline) {
             std::string reply = msgFAIL + " User is not online";
-            tcpWrite(fd, reply.c_str(), reply.length());
+            tcpWrite(fd, reply);
         }
         else {
             std::string reply = msgSUCCESS;
             reply += " " + data.userData[account].connectInfo.address;
             reply += " " + std::to_string(data.userData[account].connectInfo.port);
-            tcpWrite(fd, reply.c_str(), reply.length());
+            tcpWrite(fd, reply);
         }
     }
 
@@ -226,7 +226,7 @@ private:
                 reply += "        " + owners + ((data.userData[owners].isOnline) ? " [Online]" : " [Offline]") + "\n";
             }
         }
-        tcpWrite(fd, reply.c_str(), reply.length());
+        tcpWrite(fd, reply);
     }
 
 private:
