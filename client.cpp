@@ -35,6 +35,7 @@ void p2pServerAccept(const int listenfd);
 void p2pServerFunc(const int fd);
 
 int main(int argc, const char** argv) {
+    setbuf(stdout, NULL);
     lb::setLogEnabled(false);
     lb::threadManageInit();
     ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws);
@@ -75,9 +76,7 @@ void clientFunc(const ConnectData& server) {
         fd_set fdset;
         FD_ZERO(&fdset);
         FD_SET(fileno(stdin), &fdset);
-        timeval tv;
-        tv.tv_sec = 1;
-        tv.tv_usec = 0;
+        timeval tv = tv1s;
         int nready = select(fileno(stdin) + 1, &fdset, NULL, NULL, &tv);
         if (nready < 0) {
             if (errno == EINTR) {
@@ -181,16 +180,14 @@ void p2pServerAccept(const int listenfd) {
         fd_set fdset;
         FD_ZERO(&fdset);
         FD_SET(listenfd, &fdset);
-        timeval tv;
-        tv.tv_sec = 0;
-        tv.tv_usec = 200000;
+        timeval tv = tv1s;
         int nready = select(listenfd + 1, &fdset, NULL, NULL, &tv);
         if (nready < 0) {
             if (errno == EINTR) {
                 continue;
             }
             fprintf(stderr, "select: %s\n", strerror(errno));
-            exit(EXIT_FAILURE);
+            break;
         }
         if (FD_ISSET(listenfd, &fdset)) {
             ConnectData client = newClient(listenfd);
@@ -207,16 +204,14 @@ void p2pServerFunc(const int fd) {
         fd_set fdset;
         FD_ZERO(&fdset);
         FD_SET(fd, &fdset);
-        timeval tv;
-        tv.tv_sec = 0;
-        tv.tv_usec = 200000;
+        timeval tv = tv200ms;
         int nready = select(fd + 1, &fdset, NULL, NULL, &tv);
         if (nready < 0) {
             if (errno == EINTR) {
                 continue;
             }
             fprintf(stderr, "select: %s\n", strerror(errno));
-            exit(EXIT_FAILURE);
+            break;
         }
         if (FD_ISSET(fd, &fdset)) {
             if (tcpRead(fd, buffer, MAXN) <= 0) {

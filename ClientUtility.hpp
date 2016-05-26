@@ -67,7 +67,6 @@ public:
         default:
             break;
         }
-        fflush(stdout);
     }
 
     void printPrevious() {
@@ -309,15 +308,14 @@ public:
             fd_set fdset;
             FD_ZERO(&fdset);
             FD_SET(fileno(stdin), &fdset);
-            timeval tv;
-            tv.tv_sec = 0;
-            tv.tv_usec = 200000;
+            timeval tv = tv200ms;
             int nready = select(fileno(stdin) + 1, &fdset, NULL, NULL, &tv);
             if (nready < 0) {
                 if (errno == EINTR) {
                     continue;
                 }
-                printMessage("select: %s\n", strerror(errno));
+                std::string errMsg = std::string("select: ") + strerror(errno);
+                printMessage(errMsg);
                 break;
             }
             if (FD_ISSET(fileno(stdin), &fdset)) {
@@ -399,25 +397,72 @@ public:
             close(target.fd);
             return;
         }
+        printf("\nPress ^D to pause and show menu\n\n");
         unsigned long fileSize = fileStat.st_size;
         unsigned long byteSend = 0;
+        bool enabled = true;
+        printf("\rUploading %s... (%lu/%lu)", filename, byteSend, fileSize);
+        int refreshCounter = 0;
         while (byteSend < fileSize) {
-            char content[MAXN];
-            int n = fread(content, sizeof(char), MAXN, fp);
-            if (tcpWritePure(target.fd, content, n) <= 0) {
-                printMessage(msgDISCONNECTED, true);
+            ++refreshCounter;
+            fd_set fdset;
+            FD_ZERO(&fdset);
+            FD_SET(fileno(stdin), &fdset);
+            timeval tv = tv200us;
+            int nready = select(fileno(stdin) + 1, &fdset, NULL, NULL, &tv);
+            if (nready < 0) {
+                if (errno == EINTR) {
+                    continue;
+                }
+                std::string errMsg = std::string("select: ") + strerror(errno);
+                printMessage(errMsg);
                 break;
             }
-            if (tcpRead(target.fd, content, n) <= 0) {
-                printMessage(msgDISCONNECTED, true);
-                break;
+            if (FD_ISSET(fileno(stdin), &fdset)) {
+                char opt[MAXN];
+                if (fgets(opt, MAXN, stdin) == NULL) {
+                    enabled = false;
+                }
+                else {
+                    trimNewLine(opt);
+                    toUpperString(opt);
+                    if (std::string(opt) == "R") {
+                        enabled = true;
+                    }
+                    else if (std::string(opt) == "T") {
+                        break;
+                    }
+                }
+                printf("\n\n%s...\n", enabled ? "Resumed" : "Paused");
+                if (!enabled) {
+                    printf("[R]Resume  [T]Terminate : ");
+                }
             }
-            byteSend += n;
+            if (enabled) {
+                char content[MAXN];
+                int n = fread(content, sizeof(char), MAXN, fp);
+                if (tcpWritePure(target.fd, content, n) <= 0) {
+                    printMessage(msgDISCONNECTED, true);
+                    break;
+                }
+                if (tcpRead(target.fd, content, n) <= 0) {
+                    printMessage(msgDISCONNECTED, true);
+                    break;
+                }
+                byteSend += n;
+                if (refreshCounter > 1000) {
+                    refreshCounter = 0;
+                    printf("\rUploading %s... (%lu/%lu)", filename, byteSend, fileSize);
+                }
+            }
         }
         fclose(fp);
         close(target.fd);
         if (byteSend == fileSize) {
-            printMessage("Upload Successfully!");
+            printMessage("Upload Successfully!", true);
+        }
+        else {
+            printMessage("Terminated!", true);
         }
     }
 

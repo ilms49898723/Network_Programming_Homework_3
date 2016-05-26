@@ -42,16 +42,14 @@ int main(int argc, const char** argv) {
         FD_ZERO(&fdset);
         FD_SET(fileno(stdin), &fdset);
         FD_SET(listenfd, &fdset);
-        timeval tv;
-        tv.tv_sec = 0;
-        tv.tv_usec = 200000;
+        timeval tv = tv200ms;
         int nready = select(std::max(fileno(stdin), listenfd) + 1, &fdset, NULL, NULL, &tv);
         if (nready < 0) {
             if (errno == EINTR) {
                 continue;
             }
             fprintf(stderr, "select: %s\n", strerror(errno));
-            exit(EXIT_FAILURE);
+            break;
         }
         if (FD_ISSET(fileno(stdin), &fdset)) {
             char command[MAXN];
@@ -100,9 +98,7 @@ void serverFunc(const int fd, ConnectInfo connectInfo) {
         fd_set fdset;
         FD_ZERO(&fdset);
         FD_SET(fd, &fdset);
-        timeval tv;
-        tv.tv_sec = 0;
-        tv.tv_usec = 200000;
+        timeval tv = tv200ms;
         int nready = select(fd + 1, &fdset, NULL, NULL, &tv);
         if (nready < 0) {
             if (errno == EINTR) {
