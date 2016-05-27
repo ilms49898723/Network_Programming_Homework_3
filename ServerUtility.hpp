@@ -215,12 +215,12 @@ private:
         std::istringstream iss(msg.c_str() + msgUPDATEFILELIST.length());
         std::string filename;
         unsigned long filesize;
-        printLog("Account %s files:\n", nowAccount.c_str());
+        printLog("%sAccount %s files:\n", COLOR_BRIGHT_BLUE, nowAccount.c_str());
         while (iss >> filename >> filesize) {
             data.fileData[filename].filename = filename;
             data.fileData[filename].size = filesize;
             data.fileData[filename].owner.insert(nowAccount);
-            printf("          %s (%lu bytes)\n", filename.c_str(), filesize);
+            printf("          %s%s (%lu bytes)\n", COLOR_BRIGHT_BLUE, filename.c_str(), filesize);
         }
     }
 

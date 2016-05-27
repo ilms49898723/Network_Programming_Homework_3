@@ -10,6 +10,7 @@
 #include <string>
 #include "npinc.hpp"
 #include "nptype.hpp"
+#include "ColorCodes.h"
 
 void printLog(const char* format, ...) {
     va_list args;
@@ -17,9 +18,10 @@ void printLog(const char* format, ...) {
     time_t now = time(NULL);
     char timeBuffer[MAXN];
     strftime(timeBuffer, MAXN, "[%T]", localtime(&now));
-    printf("%s", timeBuffer);
+    printf("%s%s%s", COLOR_BRIGHT_MAGENTA, timeBuffer, COLOR_NORMAL);
     vprintf(format, args);
     va_end(args);
+    printf("%s", COLOR_NORMAL);
 }
 
 char* trimNewLine(char* src) {

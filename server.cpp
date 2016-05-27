@@ -92,7 +92,8 @@ int parseArgument(int argc, const char** argv) {
 
 void serverFunc(const int fd, ConnectInfo connectInfo) {
     ServerUtility serverUtility(fd, connectInfo);
-    printLog("New connection from %s port %d\n", connectInfo.address.c_str(), connectInfo.port);
+    printLog("%sNew connection from %s port %d%s\n",
+             COLOR_BRIGHT_RED, connectInfo.address.c_str(), connectInfo.port, COLOR_NORMAL);
     char buffer[MAXN];
     while (serverUtility.isValid() && lb::isValid()) {
         fd_set fdset;
@@ -135,6 +136,7 @@ void serverFunc(const int fd, ConnectInfo connectInfo) {
     }
     close(fd);
     lb::finishThread();
-    printLog("%s port %d disconnected\n", connectInfo.address.c_str(), connectInfo.port);
+    printLog("%s%s port %d disconnected%s\n",
+             COLOR_BRIGHT_RED, connectInfo.address.c_str(), connectInfo.port, COLOR_NORMAL);
 }
 

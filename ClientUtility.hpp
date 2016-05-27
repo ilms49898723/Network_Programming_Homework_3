@@ -59,10 +59,12 @@ public:
         printSplitLine();
         switch (static_cast<int>(stage)) {
         case 0: // WELCOME
-            printf("%s\n$ ", optWELCOME.c_str());
+            printf("%s%s%s\n", COLOR_BRIGHT_BLUE, optWELCOME.c_str(), COLOR_NORMAL);
+            printf("%sGUEST%s$ ", COLOR_BRIGHT_GREEN, COLOR_NORMAL);
             break;
         case 1: // MAIN
-            printf("%s\n%s:$ ", optMAIN.c_str(), nowAccount.c_str());
+            printf("%s%s%s\n", COLOR_BRIGHT_BLUE, optMAIN.c_str(), COLOR_NORMAL);
+            printf("%s%s%s$ ", COLOR_BRIGHT_GREEN, nowAccount.c_str(), COLOR_NORMAL);
             break;
         default:
             break;
@@ -522,7 +524,10 @@ public:
 private:
     void flushMessage(const std::string target) {
         if (!msgIsEmpty(target)) {
-            printLog("%s: %s\n", target.c_str(), popMessage(target).c_str());
+            printLog("%s%s%s: %s\n", COLOR_BRIGHT_GREEN,
+                                     target.c_str(),
+                                     COLOR_NORMAL,
+                                     popMessage(target).c_str());
         }
     }
 

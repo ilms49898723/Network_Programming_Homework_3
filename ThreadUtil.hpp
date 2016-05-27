@@ -60,7 +60,7 @@ void threadMaintain() {
                     it->first.join();
                     threads.erase(it);
                     if (logEnabled) {
-                        printLog("Thread id %s finished\n", threadIdStr.c_str());
+                        printLog("%sThread id %s finished%s\n", COLOR_BRIGHT_GREEN, threadIdStr.c_str(), COLOR_NORMAL);
                     }
                     break;
                 }
@@ -76,7 +76,7 @@ void threadMaintain() {
 void pushThread(std::thread&& item) {
     threadLocker.lock();
     if (logEnabled) {
-        printLog("Thread id %s started\n", getThreadIdStr(item.get_id()).c_str());
+        printLog("%sThread id %s started%s\n", COLOR_BRIGHT_GREEN, getThreadIdStr(item.get_id()).c_str(), COLOR_NORMAL);
     }
     threads.push_back(std::make_pair(std::move(item), true));
     threadLocker.unlock();
@@ -97,7 +97,8 @@ void joinAll() {
     for (auto& item : threads) {
         if (item.first.joinable()) {
             if (logEnabled) {
-                printLog("Thread id %s finished\n", getThreadIdStr(item.first.get_id()).c_str());
+                printLog("%sThread id %s finished%s\n",
+                         COLOR_BRIGHT_GREEN, getThreadIdStr(item.first.get_id()).c_str(), COLOR_NORMAL);
             }
             item.first.join();
         }
