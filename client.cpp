@@ -133,14 +133,14 @@ void clientFunc(const ConnectData& server) {
                     else if (command == "R") {
                         clientUtility.getFileList();
                     }
-                    else if (command == "C") {
-                        clientUtility.chat();
-                    }
                     else if (command == "U") {
                         clientUtility.upload();
                     }
                     else if (command == "D") {
                         clientUtility.download();
+                    }
+                    else if (command == "C") {
+                        clientUtility.chat();
                     }
                     else {
                         clientUtility.printMessage("Invalid command", true);
@@ -249,7 +249,9 @@ void p2pServerFunc(const int fd) {
                         break;
                     }
                     fwrite(content, sizeof(char), n, fp);
-                    tcpWrite(fd, msgSUCCESS);
+                    if (tcpWrite(fd, msgSUCCESS) <= 0) {
+                        break;
+                    }
                     byteRead += n;
                 }
                 fclose(fp);
@@ -259,6 +261,47 @@ void p2pServerFunc(const int fd) {
                 else {
                     clientUtility.setNeedUpdateDir();
                 }
+                break;
+            }
+            else if (command.find(msgFILEREAD) == 0u) {
+                char filename[MAXN];
+                unsigned long start;
+                unsigned long size;
+                sscanf(command.c_str() + msgFILEREAD.length(), "%*s%s%lu%lu", filename, &start, &size);
+                std::string filepath = std::string("./Client/") + filename;
+                struct stat fileStat;
+                if (stat(filepath.c_str(), &fileStat) < 0) {
+                    std::string errMsg = msgFAIL + " " + strerror(errno);
+                    tcpWrite(fd, errMsg);
+                    break;
+                }
+                if (start + size > static_cast<unsigned long>(fileStat.st_size)) {
+                    std::string errMsg = msgFAIL + " Offset value error";
+                    tcpWrite(fd, errMsg);
+                    break;
+                }
+                FILE* fp = fopen(filepath.c_str(), "rb");
+                if (!fp) {
+                    std::string errMsg = msgFAIL + " " + strerror(errno);
+                    tcpWrite(fd, errMsg);
+                    break;
+                }
+                tcpWrite(fd, msgSUCCESS);
+                fseek(fp, start, SEEK_SET);
+                unsigned long byteSend = 0;
+                while (byteSend < size) {
+                    char content[MAXN];
+                    int toRead = std::min(size - byteSend, static_cast<unsigned long>(MAXN));
+                    int n = fread(content, sizeof(char), toRead, fp);
+                    if (tcpWritePure(fd, content, n) <= 0) {
+                        break;
+                    }
+                    if (tcpRead(fd, content, MAXN) <= 0) {
+                        break;
+                    }
+                    byteSend += n;
+                }
+                fclose(fp);
                 break;
             }
         }

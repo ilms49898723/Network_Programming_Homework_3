@@ -132,6 +132,9 @@ void serverFunc(const int fd, ConnectInfo connectInfo) {
                      command.find(msgGETFILELIST) == 0u) {
                 serverUtility.fileListUtility(command, serverData);
             }
+            else if (command.find(msgFILEINFOREQUEST) == 0u) {
+                serverUtility.utilities(command, serverData);
+            }
         }
     }
     close(fd);

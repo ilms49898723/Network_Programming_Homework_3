@@ -79,6 +79,14 @@ public:
         }
     }
 
+    void utilities(const std::string& msg, ServerData& data) {
+        std::lock_guard<std::mutex> locku(data.accountLocker);
+        std::lock_guard<std::mutex> lockf(data.fileListLocker);
+        if (msg.find(msgFILEINFOREQUEST) == 0u) {
+            fileInfoRequest(msg, data);
+        }
+    }
+
 private:
     // REGISTER account password
     void accountRegister(const std::string& msg, ServerData& data) {
@@ -220,7 +228,7 @@ private:
             data.fileData[filename].filename = filename;
             data.fileData[filename].size = filesize;
             data.fileData[filename].owner.insert(nowAccount);
-            printf("          %s%s (%lu bytes)\n", COLOR_BRIGHT_BLUE, filename.c_str(), filesize);
+            printf("          %s%s (%lu bytes)%s\n", COLOR_BRIGHT_BLUE, filename.c_str(), filesize, COLOR_NORMAL);
         }
     }
 
@@ -256,6 +264,45 @@ private:
                 }
             }
             tcpWrite(fd, reply);
+        }
+    }
+
+    // FILEINFOREQUEST DIRECT|P2P account filename
+    void fileInfoRequest(const std::string& msg, ServerData& data) {
+        char option[MAXN];
+        char account[MAXN];
+        char filename[MAXN];
+        sscanf(msg.c_str() + msgFILEINFOREQUEST.length(), "%s%s%s", option, account, filename);
+        printLog("%s requested connection info of account %s\n", nowAccount.c_str(), account);
+        if (!data.userData.count(account)) {
+            std::string reply = msgFAIL + " User not found";
+            tcpWrite(fd, reply);
+            return;
+        }
+        else if (!data.userData[account].isOnline) {
+            std::string reply = msgFAIL + " User is not online";
+            tcpWrite(fd, reply);
+            return;
+        }
+        else if (!data.fileData.count(filename)) {
+            std::string reply = msgFAIL + " File not found in server database";
+            tcpWrite(fd, reply);
+            return;
+        }
+        else if (!data.fileData[filename].owner.count(account)) {
+            std::string reply = msgFAIL + " User doesn\'t has the file";
+            tcpWrite(fd, reply);
+            return;
+        }
+        if (std::string(option) == "DIRECT") {
+            std::string reply = msgSUCCESS + " " +
+                                data.userData[account].connectInfo.address + " " +
+                                std::to_string(data.userData[account].connectInfo.port) + " " +
+                                std::to_string(data.fileData[filename].size);
+            tcpWrite(fd, reply);
+        }
+        else {
+
         }
     }
 

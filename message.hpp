@@ -24,6 +24,8 @@ const std::string msgGETFILELIST = "GETFILELIST";
 const std::string msgCHATREQUEST = "CHATREQUEST";
 const std::string msgMESSAGE = "MESSAGE";
 
+const std::string msgFILEINFOREQUEST = "FILEINFOREQUEST";
+
 const std::string msgFILEREAD = "FILEREAD";
 const std::string msgFILEWRITE = "FILEWRITE";
 

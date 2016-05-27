@@ -421,23 +421,23 @@ public:
                 break;
             }
             if (FD_ISSET(fileno(stdin), &fdset)) {
-                char opt[MAXN];
-                if (fgets(opt, MAXN, stdin) == NULL) {
+                char option[MAXN];
+                if (fgets(option, MAXN, stdin) == NULL) {
                     enabled = false;
                 }
                 else {
-                    trimNewLine(opt);
-                    toUpperString(opt);
-                    if (std::string(opt) == "R") {
+                    trimNewLine(option);
+                    toUpperString(option);
+                    if (std::string(option) == "R") {
                         enabled = true;
                     }
-                    else if (std::string(opt) == "T") {
+                    else if (std::string(option) == "T") {
                         break;
                     }
                 }
                 printf("\n\n%s...\n", enabled ? "Resumed" : "Paused");
                 if (!enabled) {
-                    printf("[R]Resume  [T]Terminate : ");
+                    printf("[R]Resume  [T]Terminate:$ ");
                 }
             }
             if (enabled) {
@@ -469,7 +469,70 @@ public:
     }
 
     void download() {
-
+        char option[MAXN];
+        while (true) {
+            printf("[D]Direct  [P]P2P:$ ");
+            if (fgets(option, MAXN, stdin) == NULL) {
+                printPrevious();
+                return;
+            }
+            trimNewLine(option);
+            toUpperString(option);
+            if (std::string(option) == "D" || std::string(option) == "P") {
+                break;
+            }
+        }
+        if (std::string(option) == "D") {
+            char account[MAXN];
+            printf("Account: ");
+            if (fgets(account, MAXN, stdin) == NULL) {
+                printPrevious();
+                return;
+            }
+            trimNewLine(account);
+            if (nowAccount == account) {
+                printMessage("Failed! To download file from yourself is not supported", true);
+                return;
+            }
+            char filename[MAXN];
+            printf("Filename: ");
+            if (fgets(filename, MAXN, stdin) == NULL) {
+                printPrevious();
+                return;
+            }
+            trimNewLine(filename);
+            std::string info = msgFILEINFOREQUEST + " DIRECT " + account + " " + filename;
+            tcpWrite(fd, info);
+            char buffer[MAXN];
+            tcpRead(fd, buffer, MAXN);
+            if (std::string(buffer).find(msgFAIL) == 0u) {
+                printMessage(buffer, true);
+                return;
+            }
+            char address[MAXN];
+            int port;
+            unsigned long fileSize;
+            sscanf(buffer + msgSUCCESS.length(), "%s%d%lu", address, &port, &fileSize);
+            fileValid = true;
+            fileDownloadEnabled = true;
+            fileSizeWritten = 0;
+            ConnectInfo serverc = ConnectInfo(address, port);
+            std::vector<std::thread> p2pDownloadThreads;
+            p2pDownloadThreads.push_back(std::thread(&ClientUtility::downloadHandler, this, filename, fileSize));
+            p2pDownloadThreads.push_back(std::thread(&ClientUtility::downloadFile, this, serverc, filename, fileSize, 0));
+            for (auto& item : p2pDownloadThreads) {
+                item.join();
+            }
+            if (fileValid) {
+                updateFileList();
+                printMessage("Download Successfully", true);
+            }
+            else {
+                std::string filepath = std::string("./Client/") + filename;
+                remove(filepath.c_str());
+                printMessage("Failed", true);
+            }
+        }
     }
 
 public:
@@ -524,10 +587,8 @@ public:
 private:
     void flushMessage(const std::string target) {
         if (!msgIsEmpty(target)) {
-            printLog("%s%s%s: %s\n", COLOR_BRIGHT_GREEN,
-                                     target.c_str(),
-                                     COLOR_NORMAL,
-                                     popMessage(target).c_str());
+            printLog("%s%s%s: %s\n",
+                     COLOR_BRIGHT_GREEN, target.c_str(), COLOR_NORMAL, popMessage(target).c_str());
         }
     }
 
@@ -544,6 +605,135 @@ private:
     }
 
 private:
+    void downloadHandler(const std::string& filename, unsigned long fileSize) {
+        printf("\nPress ^D to pause and show menu\n\n");
+        printf("\rDownloading %s... (%lu/%lu)", filename.c_str(), fileSizeWritten, fileSize);
+        while (fileSizeWritten < fileSize) {
+            fd_set fdset;
+            FD_ZERO(&fdset);
+            FD_SET(fileno(stdin), &fdset);
+            timeval tv = tv1s;
+            int nready = select(fileno(stdin) + 1, &fdset, NULL, NULL, &tv);
+            if (nready < 0) {
+                if (errno == EINTR) {
+                    continue;
+                }
+                std::string errMsg = std::string("select: ") + strerror(errno);
+                printMessage(errMsg);
+                fileValid = false;
+                break;
+            }
+            if (FD_ISSET(fileno(stdin), &fdset)) {
+                char option[MAXN];
+                if (fgets(option, MAXN, stdin) == NULL) {
+                    setFileDownloadEnabled(false);
+                }
+                else {
+                    trimNewLine(option);
+                    toUpperString(option);
+                    if (std::string(option) == "R") {
+                        setFileDownloadEnabled(true);
+                    }
+                    else if (std::string(option) == "T") {
+                        fileValid = false;
+                        break;
+                    }
+                }
+                printf("\n\n%s...\n", fileDownloadEnabled ? "Resumed" : "Paused");
+                if (!fileDownloadEnabled) {
+                    printf("[R]Resume  [T]Terminate:$ ");
+                }
+            }
+            if (fileDownloadEnabled) {
+                printf("\rDownloading %s... (%lu/%lu)", filename.c_str(), fileSizeWritten, fileSize);
+            }
+        }
+        if (fileSizeWritten != fileSize) {
+            fileValid = false;
+        }
+    }
+
+    void downloadFile(const ConnectInfo& conn, const std::string& filename, unsigned long fileSize, unsigned long offset) {
+        ConnectData target = connectTo(conn);
+        if (target.fd < 0) {
+            printMessage("Connect failed", true);
+            fileValid = false;
+            return;
+        }
+        std::string info = msgFILEREAD + " CONFIRM " + filename + " " +
+                           std::to_string(offset) + " " + std::to_string(fileSize);
+        tcpWrite(target.fd, info);
+        char buffer[MAXN];
+        tcpRead(target.fd, buffer, MAXN);
+        if (std::string(buffer).find(msgFAIL) == 0u) {
+            printMessage(buffer, true);
+            close(target.fd);
+            fileValid = false;
+            return;
+        }
+        unsigned long byteRecv = 0;
+        char* fileCache = new char[MAXN * 1024];
+        unsigned cacheIndex = 0u;
+        unsigned cacheOffset = 0u;
+        unsigned cacheSize = 0u;
+        while (byteRecv < fileSize && fileValid) {
+            if (fileDownloadEnabled) {
+                if (cacheSize > MAXN * 1000) {
+                    if (fileWrite(filename, offset + cacheIndex, fileCache, cacheSize) <= 0) {
+                        fileValid = false;
+                        break;
+                    }
+                    cacheIndex += cacheSize;
+                    cacheOffset = 0u;
+                    cacheSize = 0u;
+                }
+                int n;
+                if ((n = tcpRead(target.fd, fileCache + cacheOffset, MAXN)) <= 0) {
+                    fileValid = false;
+                    break;
+                }
+                if (tcpWrite(target.fd, msgSUCCESS) <= 0) {
+                    fileValid = false;
+                    break;
+                }
+                byteRecv += n;
+                cacheOffset += n;
+                cacheSize += n;
+                fileSizeWritten += n;
+            }
+        }
+        if (cacheSize > 0u) {
+            if (fileWrite(filename, offset + cacheIndex, fileCache, cacheSize) <= 0) {
+                fileValid = false;
+            }
+        }
+        if (byteRecv != fileSize) {
+            fileValid = false;
+        }
+        delete[] fileCache;
+        close(target.fd);
+    }
+
+    int fileWrite(const std::string& filename, unsigned long offset, const char* src, int n) {
+        std::lock_guard<std::mutex> lock(fileWriteLocker);
+        std::string filepath = std::string("./Client/") + filename;
+        FILE* fp = fopen(filepath.c_str(), "wb");
+        if (!fp) {
+            fprintf(stderr, "%s: %s\n", filename.c_str(), strerror(errno));
+            return -1;
+        }
+        fseek(fp, offset, SEEK_SET);
+        int ret = fwrite(src, sizeof(char), n, fp);
+        fclose(fp);
+        return ret;
+    }
+
+    void setFileDownloadEnabled(const bool enabled) {
+        std::lock_guard<std::mutex> lock(fileWriteLocker);
+        fileDownloadEnabled = enabled;
+    }
+
+private:
     ClientData clientData;
     std::string nowAccount;
     std::string lastmsg;
@@ -555,6 +745,12 @@ private:
 private:
     int terminalRow;
     int terminalCol;
+
+private:
+    std::mutex fileWriteLocker;
+    unsigned long fileSizeWritten;
+    bool fileDownloadEnabled;
+    bool fileValid;
 };
 
 #endif // NETWORK_PROGRAMMING_CLIENTUTILITY_HPP_
