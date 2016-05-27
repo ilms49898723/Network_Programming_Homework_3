@@ -296,7 +296,7 @@ public:
         char address[MAXN];
         int port;
         sscanf(buffer + msgSUCCESS.length(), "%s%d", address, &port);
-        ConnectData target = newConnection(ConnectInfo(address, port));
+        ConnectData target = connectTo(ConnectInfo(address, port));
         if (target.fd < 0) {
             printMessage("Connect Error", true);
             return;
@@ -384,7 +384,7 @@ public:
             printMessage(errMsg, true);
             return;
         }
-        ConnectData target = newConnection(ConnectInfo(address, port));
+        ConnectData target = connectTo(ConnectInfo(address, port));
         if (target.fd < 0) {
             printMessage("Connect Error", true);
             fclose(fp);

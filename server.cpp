@@ -67,7 +67,7 @@ int main(int argc, const char** argv) {
             }
         }
         if (FD_ISSET(listenfd, &fdset)) {
-            ConnectData client = newClient(listenfd);
+            ConnectData client = acceptConnection(listenfd);
             ConnectInfo connectInfo = getConnectInfo(client.sock);
             lb::pushThread(std::thread(serverFunc, client.fd, connectInfo));
         }

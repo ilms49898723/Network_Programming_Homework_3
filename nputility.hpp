@@ -78,7 +78,7 @@ int newServer(const int& port) {
     return fd;
 }
 
-ConnectData newClient(const int& listenfd) {
+ConnectData acceptConnection(const int& listenfd) {
     sockaddr_in client;
     socklen_t clientlength = sizeof(client);
     int clientfd;
@@ -89,7 +89,7 @@ ConnectData newClient(const int& listenfd) {
     return ConnectData(client, clientfd);
 }
 
-ConnectData newConnection(const ConnectInfo& connectInfo) {
+ConnectData connectTo(const ConnectInfo& connectInfo) {
     int fd;
     if ((fd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
         printLog("socket: %s\n", strerror(errno));

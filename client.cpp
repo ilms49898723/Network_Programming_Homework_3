@@ -41,7 +41,7 @@ int main(int argc, const char** argv) {
     ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws);
     mkdir("Client", 0777);
     ConnectInfo connectInfo = parseArgument(argc, argv);
-    ConnectData server = newConnection(connectInfo);
+    ConnectData server = connectTo(connectInfo);
     if (server.fd < 0) {
         lb::joinAll();
         return EXIT_FAILURE;
@@ -190,7 +190,7 @@ void p2pServerAccept(const int listenfd) {
             break;
         }
         if (FD_ISSET(listenfd, &fdset)) {
-            ConnectData client = newClient(listenfd);
+            ConnectData client = acceptConnection(listenfd);
             lb::pushThread(std::thread(p2pServerFunc, client.fd));
         }
     }
