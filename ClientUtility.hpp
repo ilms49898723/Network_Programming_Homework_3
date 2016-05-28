@@ -144,7 +144,7 @@ public:
 
     void deleteAccount() {
         char buffer[MAXN];
-        printf("Are you sure?(yes/no) ");
+        printf("%sAre you sure?%s(yes/no) ", COLOR_BRIGHT_RED, COLOR_NORMAL);
         if (fgets(buffer, MAXN, stdin) == NULL) {
             printPrevious();
             return;
@@ -232,7 +232,9 @@ public:
                 continue;
             }
             info += std::string(" ") + std::string(dirst->d_name) + std::string(" ") + std::to_string(st.st_size);
-            msg += "    " + std::string(dirst->d_name) + " (" + std::to_string(st.st_size) + " bytes)\n";
+            msg += COLOR_BRIGHT_GREEN;
+            msg += "    " + std::string(dirst->d_name) + COLOR_NORMAL;
+            msg += " (" + std::to_string(st.st_size) + " bytes)\n";
         }
         closedir(dir);
         tcpWrite(fd, info);
@@ -302,8 +304,8 @@ public:
             return;
         }
         flushScreen();
-        printf("Chat to %s\n", account);
-        printf("Press ^D to exit\n");
+        printf("Chat to %s%s%s\n\n", COLOR_BRIGHT_GREEN, account, COLOR_NORMAL);
+        printf("%sPress ^D to exit%s\n\n", COLOR_BRIGHT_YELLOW, COLOR_NORMAL);
         printSplitLine();
         int checkConnCnt = 0;
         while (true) {
@@ -382,7 +384,7 @@ public:
             printMessage(errMsg, true);
             return;
         }
-        printf("\nPress ^D to pause and show menu\n\n");
+        printf("\n%sPress ^D to pause and show menu%s\n\n", COLOR_BRIGHT_YELLOW, COLOR_NORMAL);
         unsigned long fileSize = fileStat.st_size;
         fileValid = true;
         fileUploadEnabled = true;
@@ -422,9 +424,9 @@ public:
                         break;
                     }
                 }
-                printf("\n\n%s...\n", fileUploadEnabled ? "Resumed" : "Paused");
+                printf("\n%s...\n", fileUploadEnabled ? "Resumed" : "Paused");
                 if (!fileUploadEnabled) {
-                    printf("[R]Resume  [T]Terminate:$ ");
+                    printf("%s[R]Resume  [T]Terminate%s:$ ", COLOR_BRIGHT_BLUE, COLOR_NORMAL);
                 }
             }
             if (fileUploadEnabled) {
@@ -444,7 +446,7 @@ public:
     void download() {
         char option[MAXN];
         while (true) {
-            printf("[D]Direct  [P]P2P:$ ");
+            printf("%s[D]Direct  [P]P2P%s:$ ", COLOR_BRIGHT_BLUE, COLOR_NORMAL);
             if (fgets(option, MAXN, stdin) == NULL) {
                 printPrevious();
                 return;
@@ -676,7 +678,7 @@ private:
 
 private:
     void downloadHandler(const std::string& filename, unsigned long fileSize) {
-        printf("\nPress ^D to pause and show menu\n\n");
+        printf("\n%sPress ^D to pause and show menu%s\n\n", COLOR_BRIGHT_YELLOW, COLOR_NORMAL);
         printf("\rDownloading %s... (%lu/%lu)", filename.c_str(), fileSizeWritten, fileSize);
         while (fileSizeWritten < fileSize) {
             fd_set fdset;
@@ -705,13 +707,14 @@ private:
                         setFileDownloadEnabled(true);
                     }
                     else if (std::string(option) == "T") {
+                        fileDownloadEnabled = false;
                         fileValid = false;
                         break;
                     }
                 }
-                printf("\n\n%s...\n", fileDownloadEnabled ? "Resumed" : "Paused");
+                printf("\n%s...\n", fileDownloadEnabled ? "Resumed" : "Paused");
                 if (!fileDownloadEnabled) {
-                    printf("[R]Resume  [T]Terminate:$ ");
+                    printf("%s[R]Resume  [T]Terminate%s:$ ", COLOR_BRIGHT_YELLOW, COLOR_NORMAL);
                 }
             }
             if (fileDownloadEnabled) {

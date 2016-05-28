@@ -161,11 +161,14 @@ private:
             return;
         }
         std::string reply = "Online Users:\n";
-        reply += "    Account                               IP                Port\n";
+        reply += COLOR_BRIGHT_GREEN;
+        reply += "    Account                     IP                Port";
+        reply += COLOR_NORMAL;
+        reply += "\n";
         for (auto& item : data.userData) {
             if (item.second.isOnline) {
                 char formatBuffer[MAXN];
-                snprintf(formatBuffer, MAXN, "    %-35s   %-15s   %d\n",
+                snprintf(formatBuffer, MAXN, "    %-25s   %-15s   %d\n",
                          item.first.c_str(),
                          item.second.connectInfo.address.c_str(),
                          item.second.connectInfo.port);
@@ -239,9 +242,21 @@ private:
         }
         std::string reply = "Files:\n";
         for (auto& item : data.fileData) {
-            reply += "    " + item.first + " (" + std::to_string(item.second.size) + " bytes)\n";
-            for (auto& owners : item.second.owner) {
-                reply += "        " + owners + ((data.userData[owners].isOnline) ? " [Online]" : " [Offline]") + "\n";
+            reply += COLOR_BRIGHT_GREEN;
+            reply += "    " + item.first + " (" + std::to_string(item.second.size) + " bytes)";
+            reply += COLOR_NORMAL;
+            reply += "\n";
+            for (auto& who : item.second.owner) {
+                if (!data.userData[who].isOnline) {
+                    continue;
+                }
+                reply += "        " + who + ((data.userData[who].isOnline) ? " [Online]" : " [Offline]") + "\n";
+            }
+            for (auto& who : item.second.owner) {
+                if (data.userData[who].isOnline) {
+                    continue;
+                }
+                reply += "        " + who + ((data.userData[who].isOnline) ? " [Online]" : " [Offline]") + "\n";
             }
         }
         tcpWrite(fd, reply);
@@ -260,7 +275,10 @@ private:
             reply += std::string(" ") + (data.userData[account].isOnline ? "[Online]" : "[Offline]") + "\n";
             for (auto& item : data.fileData) {
                 if (item.second.owner.count(account)) {
-                    reply += "    " + item.first + " (" + std::to_string(item.second.size) + " bytes)\n";
+                    reply += COLOR_BRIGHT_GREEN;
+                    reply += "    " + item.first;
+                    reply += COLOR_NORMAL;
+                    reply += " (" + std::to_string(item.second.size) + " bytes)\n";
                 }
             }
             tcpWrite(fd, reply);
@@ -275,8 +293,8 @@ private:
         sscanf(msg.c_str() + msgFILEINFOREQUEST.length(), "%s", option);
         if (std::string(option) == "DIRECT") {
             sscanf(msg.c_str() + msgFILEINFOREQUEST.length(), "%*s%s%s", account, filename);
-            printLog("%s requested connection info of account %s\n", nowAccount.c_str(), account);
-            printLog("          Direct Download File %s\n", filename);
+            printLog("Account %s requested connection info of account %s\n", nowAccount.c_str(), account);
+            printf("          Direct Download File %s\n", filename);
             if (!data.userData.count(account)) {
                 std::string reply = msgFAIL + " User not found";
                 tcpWrite(fd, reply);
@@ -306,8 +324,8 @@ private:
         else {
             char filename[MAXN];
             sscanf(msg.c_str() + msgFILEINFOREQUEST.length(), "%*s%s", filename);
-            printLog("%s requested connection info\n", nowAccount.c_str());
-            printLog("          P2P Download File %s\n", filename);
+            printLog("Account %s requested connection info\n", nowAccount.c_str());
+            printf("          P2P Download File %s\n", filename);
             if (!data.fileData.count(filename)) {
                 std::string reply = msgFAIL + " File not found in server database";
                 tcpWrite(fd, reply);
@@ -320,7 +338,7 @@ private:
                 }
             }
             if (targetUsers.empty()) {
-                std::string reply = msgSUCCESS + " No avaliable users to download from(all offline)";
+                std::string reply = msgFAIL + " No avaliable users to download from(all offline)";
                 tcpWrite(fd, reply);
                 return;
             }
@@ -334,14 +352,15 @@ private:
                 reply += " " + data.userData[who].connectInfo.address;
                 reply += " " + std::to_string(data.userData[who].connectInfo.port);
                 if (i == targetUsers.size() - 1 || div == 0) {
+                    printf("          Account %s offset %lu size %lu\n", who.c_str(), offset, fileSize - offset);
                     reply += " " + std::to_string(offset) + " " + std::to_string(fileSize);
                     break;
                 }
+                printf("          Account %s offset %lu size %lu\n", who.c_str(), offset, div);
                 reply += " " + std::to_string(offset) + " " + std::to_string(offset + div);
                 offset += div;
             }
             tcpWrite(fd, reply);
-            fprintf(stderr, "%s\n", reply.c_str());
         }
     }
 
