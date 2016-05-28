@@ -43,6 +43,7 @@ public:
         this->terminalRow = row;
         this->terminalCol = col;
         stage = NPStage::WELCOME;
+        lb::pushThread(std::thread(&ClientUtility::localFileWatcher, this));
     }
 
     void printMessage(const std::string& msg, const bool isNotification = false) {
@@ -81,6 +82,33 @@ public:
 
     std::string getLastmsg() const {
         return lastmsg;
+    }
+
+public:
+    void ls() {
+        DIR* dir = opendir("./Client");
+        if (!dir) {
+            std::string errMsg = std::string("./Client: ") + strerror(errno);
+            printMessage(errMsg, true);
+            return;
+        }
+        std::string msg = "Local Files:\n";
+        dirent* dirst;
+        while ((dirst = readdir(dir))) {
+            if (dirst->d_type == DT_DIR) {
+                continue;
+            }
+            std::string filepath = std::string("Client/") + dirst->d_name;
+            struct stat st;
+            if (stat(filepath.c_str(), &st) < 0) {
+                continue;
+            }
+            msg += COLOR_BRIGHT_GREEN;
+            msg += "    " + std::string(dirst->d_name) + COLOR_NORMAL;
+            msg += " (" + std::to_string(st.st_size) + " bytes)\n";
+        }
+        closedir(dir);
+        printMessage(msg);
     }
 
 public:
@@ -139,7 +167,12 @@ public:
         tcpWrite(fd, msg);
         char buffer[MAXN];
         tcpRead(fd, buffer, MAXN);
-        printMessage(buffer);
+        if (std::string(buffer).find(msgSUCCESS) == 0u) {
+            printMessage("Registered Successfully!");
+        }
+        else {
+            printMessage(buffer, true);
+        }
     }
 
     void deleteAccount() {
@@ -155,7 +188,7 @@ public:
             tcpWrite(fd, info);
             stage = NPStage::WELCOME;
             nowAccount = "";
-            printMessage("Success!");
+            printMessage("Deleted Successfully!");
         }
         else {
             printMessage("Canceled", true);
@@ -193,7 +226,7 @@ public:
             printMessage(std::string("Login Success!\n\nWelcome ") + account + "!");
         }
         else {
-            printMessage(buffer);
+            printMessage(buffer, true);
         }
     }
 
@@ -219,6 +252,8 @@ public:
             printMessage("Cannot open directory Client", true);
             return;
         }
+        std::lock_guard<std::mutex> lock(localFileListLocker);
+        localFileList = getLocalFileList();
         dirent *dirst;
         std::string info = msgUPDATEFILELIST;
         std::string msg;
@@ -241,6 +276,7 @@ public:
         if (!silent) {
             printMessage(std::string("File List updated!\n") + msg);
         }
+        needUpdateDir = false;
     }
 
     void getFileList() {
@@ -411,8 +447,9 @@ public:
                 char option[MAXN];
                 if (fgets(option, MAXN, stdin) == NULL) {
                     fileUploadEnabled = false;
+                    printf("\n%s...\n", fileUploadEnabled ? "Resumed" : "Paused");
                 }
-                else {
+                else if (fileUploadEnabled == false) {
                     trimNewLine(option);
                     toUpperString(option);
                     if (std::string(option) == "R") {
@@ -423,8 +460,8 @@ public:
                         fileValid = false;
                         break;
                     }
+                    printf("\n%s...\n", fileUploadEnabled ? "Resumed" : "Paused");
                 }
-                printf("\n%s...\n", fileUploadEnabled ? "Resumed" : "Paused");
                 if (!fileUploadEnabled) {
                     printf("%s[R]Resume  [T]Terminate%s:$ ", COLOR_BRIGHT_BLUE, COLOR_NORMAL);
                 }
@@ -488,6 +525,19 @@ public:
             int port;
             unsigned long fileSize;
             sscanf(buffer + msgSUCCESS.length(), "%s%d%lu", address, &port, &fileSize);
+            std::string filepath = std::string("./Client/") + filename;
+            FILE* fp = fopen(filepath.c_str(), "wb");
+            if (!fp) {
+                std::string errMsg = std::string(filename) + ": " + strerror(errno);
+                printMessage(errMsg, true);
+                return;
+            }
+            fclose(fp);
+            if (truncate(filepath.c_str(), fileSize) < 0) {
+                std::string errMsg = std::string("truncate: ") + strerror(errno);
+                printMessage(errMsg, true);
+                return;
+            }
             fileValid = true;
             fileDownloadEnabled = true;
             fileSizeWritten = 0;
@@ -503,8 +553,8 @@ public:
                 printMessage("Download Successfully", true);
             }
             else {
-                std::string filepath = std::string("./Client/") + filename;
                 remove(filepath.c_str());
+                updateFileList();
                 printMessage("Failed!", true);
             }
         }
@@ -531,6 +581,19 @@ public:
             unsigned long from;
             unsigned long to;
             iss >> info >> fileSize;
+            std::string filepath = std::string("./Client/") + filename;
+            FILE* fp = fopen(filepath.c_str(), "wb");
+            if (!fp) {
+                std::string errMsg = std::string(filename) + ": " + strerror(errno);
+                printMessage(errMsg, true);
+                return;
+            }
+            fclose(fp);
+            if (truncate(filepath.c_str(), fileSize) < 0) {
+                std::string errMsg = std::string("truncate: ") + strerror(errno);
+                printMessage(errMsg, true);
+                return;
+            }
             fileValid = true;
             fileDownloadEnabled = true;
             fileSizeWritten = 0u;
@@ -546,11 +609,11 @@ public:
             }
             if (fileValid) {
                 updateFileList();
-                printMessage("Download Successfully", true);
+                printMessage("Download Successfully!", true);
             }
             else {
-                std::string filepath = std::string("./Client/") + filename;
                 remove(filepath.c_str());
+                updateFileList();
                 printMessage("Failed!", true);
             }
         }
@@ -597,6 +660,56 @@ private:
             }
         }
         return true;
+    }
+
+    void localFileWatcher() {
+        while (lb::isValid()) {
+            std::this_thread::sleep_for(std::chrono::seconds(5));
+            std::lock_guard<std::mutex> lock(localFileListLocker);
+            std::set<std::pair<std::string, unsigned long>> newFileList = getLocalFileList();
+            if (isLocalDirectoryDirty(localFileList, newFileList)) {
+                localFileList = newFileList;
+                setNeedUpdateDir();
+            }
+        }
+    }
+
+    bool isLocalDirectoryDirty(const std::set<std::pair<std::string, unsigned long>>& lhv,
+                               const std::set<std::pair<std::string, unsigned long>>& rhv) {
+        if (lhv.size() != rhv.size()) {
+            return true;
+        }
+        auto it = lhv.cbegin();
+        auto iu = rhv.cbegin();
+        for ( ; it != lhv.cend() && iu != rhv.cend(); ++it, ++iu) {
+            if (*it != *iu) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    std::set<std::pair<std::string, unsigned long>> getLocalFileList() {
+        std::set<std::pair<std::string, unsigned long>> ret;
+        DIR* dir = opendir("./Client");
+        if (!dir) {
+            fprintf(stderr, "./Client: %s\n", strerror(errno));
+            return std::set<std::pair<std::string, unsigned long>>();
+        }
+        dirent* dirst;
+        while ((dirst = readdir(dir))) {
+            if (dirst->d_type == DT_DIR) {
+                continue;
+            }
+            std::string filepath = std::string("./Client/") + dirst->d_name;
+            struct stat fileStat;
+            if (stat(filepath.c_str(), &fileStat) < 0) {
+                continue;
+            }
+            ret.insert(std::make_pair(dirst->d_name, static_cast<unsigned long>(fileStat.st_size)));
+        }
+        closedir(dir);
+        return ret;
     }
 
 public:
@@ -699,8 +812,9 @@ private:
                 char option[MAXN];
                 if (fgets(option, MAXN, stdin) == NULL) {
                     setFileDownloadEnabled(false);
+                    printf("\n%s...\n", fileDownloadEnabled ? "Resumed" : "Paused");
                 }
-                else {
+                else if (fileDownloadEnabled == false) {
                     trimNewLine(option);
                     toUpperString(option);
                     if (std::string(option) == "R") {
@@ -711,10 +825,10 @@ private:
                         fileValid = false;
                         break;
                     }
+                    printf("\n%s...\n", fileDownloadEnabled ? "Resumed" : "Paused");
                 }
-                printf("\n%s...\n", fileDownloadEnabled ? "Resumed" : "Paused");
                 if (!fileDownloadEnabled) {
-                    printf("%s[R]Resume  [T]Terminate%s:$ ", COLOR_BRIGHT_YELLOW, COLOR_NORMAL);
+                    printf("%s[R]Resume  [T]Terminate%s:$ ", COLOR_BRIGHT_BLUE, COLOR_NORMAL);
                 }
             }
             if (fileDownloadEnabled) {
@@ -791,7 +905,7 @@ private:
     int fileWrite(const std::string& filename, unsigned long offset, const char* src, int n) {
         std::lock_guard<std::mutex> lock(fileWriteLocker);
         std::string filepath = std::string("./Client/") + filename;
-        FILE* fp = fopen(filepath.c_str(), "wb");
+        FILE* fp = fopen(filepath.c_str(), "rb+");
         if (!fp) {
             fprintf(stderr, "%s: %s\n", filename.c_str(), strerror(errno));
             fileValid = false;
@@ -820,6 +934,10 @@ private:
     NPStage stage;
     int fd;
     int p2pPort;
+
+private:
+    std::mutex localFileListLocker;
+    std::set<std::pair<std::string, unsigned long>> localFileList;
     bool needUpdateDir;
 
 private:

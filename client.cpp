@@ -26,6 +26,8 @@ int p2pPort;
 ClientUtility clientUtility;
 // client init functions
 ConnectInfo parseArgument(const int& argc, const char**& argv);
+void fileListWatcher();
+std::set<std::string> getLocalFileList;
 // client main functions
 void clientFunc(const ConnectData& server);
 void clientRecv(const int fd);
@@ -141,6 +143,9 @@ void clientFunc(const ConnectData& server) {
                     }
                     else if (command == "C") {
                         clientUtility.chat();
+                    }
+                    else if (command == "LS") {
+                        clientUtility.ls();
                     }
                     else {
                         clientUtility.printMessage("Invalid command", true);
@@ -258,9 +263,7 @@ void p2pServerFunc(const int fd) {
                 if (byteRead != fileSize) {
                     remove(filepath.c_str());
                 }
-                else {
-                    clientUtility.setNeedUpdateDir();
-                }
+                clientUtility.setNeedUpdateDir();
                 break;
             }
             else if (command.find(msgFILEREAD) == 0u) {
