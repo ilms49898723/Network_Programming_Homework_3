@@ -23,6 +23,7 @@ constexpr int MAXN = 2048;
 const timeval tv1s = (timeval) {1, 0};
 const timeval tv200ms = (timeval) {0, 200000};
 const timeval tv200us = (timeval) {0, 200};
+const timeval tv10us = (timeval) {0, 10};
 
 #endif // NETWORK_PROGRAMMING_NPINC_HPP_
 

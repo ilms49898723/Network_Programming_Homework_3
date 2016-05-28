@@ -272,29 +272,31 @@ private:
         char option[MAXN];
         char account[MAXN];
         char filename[MAXN];
-        sscanf(msg.c_str() + msgFILEINFOREQUEST.length(), "%s%s%s", option, account, filename);
-        printLog("%s requested connection info of account %s\n", nowAccount.c_str(), account);
-        if (!data.userData.count(account)) {
-            std::string reply = msgFAIL + " User not found";
-            tcpWrite(fd, reply);
-            return;
-        }
-        else if (!data.userData[account].isOnline) {
-            std::string reply = msgFAIL + " User is not online";
-            tcpWrite(fd, reply);
-            return;
-        }
-        else if (!data.fileData.count(filename)) {
-            std::string reply = msgFAIL + " File not found in server database";
-            tcpWrite(fd, reply);
-            return;
-        }
-        else if (!data.fileData[filename].owner.count(account)) {
-            std::string reply = msgFAIL + " User doesn\'t has the file";
-            tcpWrite(fd, reply);
-            return;
-        }
+        sscanf(msg.c_str() + msgFILEINFOREQUEST.length(), "%s", option);
         if (std::string(option) == "DIRECT") {
+            sscanf(msg.c_str() + msgFILEINFOREQUEST.length(), "%*s%s%s", account, filename);
+            printLog("%s requested connection info of account %s\n", nowAccount.c_str(), account);
+            printLog("          Direct Download File %s\n", filename);
+            if (!data.userData.count(account)) {
+                std::string reply = msgFAIL + " User not found";
+                tcpWrite(fd, reply);
+                return;
+            }
+            else if (!data.userData[account].isOnline) {
+                std::string reply = msgFAIL + " User is not online";
+                tcpWrite(fd, reply);
+                return;
+            }
+            else if (!data.fileData.count(filename)) {
+                std::string reply = msgFAIL + " File not found in server database";
+                tcpWrite(fd, reply);
+                return;
+            }
+            else if (!data.fileData[filename].owner.count(account)) {
+                std::string reply = msgFAIL + " User doesn\'t has the file";
+                tcpWrite(fd, reply);
+                return;
+            }
             std::string reply = msgSUCCESS + " " +
                                 data.userData[account].connectInfo.address + " " +
                                 std::to_string(data.userData[account].connectInfo.port) + " " +
@@ -302,7 +304,44 @@ private:
             tcpWrite(fd, reply);
         }
         else {
-
+            char filename[MAXN];
+            sscanf(msg.c_str() + msgFILEINFOREQUEST.length(), "%*s%s", filename);
+            printLog("%s requested connection info\n", nowAccount.c_str());
+            printLog("          P2P Download File %s\n", filename);
+            if (!data.fileData.count(filename)) {
+                std::string reply = msgFAIL + " File not found in server database";
+                tcpWrite(fd, reply);
+                return;
+            }
+            std::vector<std::string> targetUsers;
+            for (const auto& who : data.fileData[filename].owner) {
+                if (data.userData[who].isOnline && who != nowAccount) {
+                    targetUsers.push_back(who);
+                }
+            }
+            if (targetUsers.empty()) {
+                std::string reply = msgSUCCESS + " No avaliable users to download from(all offline)";
+                tcpWrite(fd, reply);
+                return;
+            }
+            std::string reply = msgSUCCESS + " " +
+                                std::to_string(data.fileData[filename].size);
+            unsigned long fileSize = data.fileData[filename].size;
+            unsigned long offset = 0;
+            unsigned long div = data.fileData[filename].size / targetUsers.size();
+            for (auto i = 0lu; i < targetUsers.size(); ++i) {
+                const std::string& who = targetUsers[i];
+                reply += " " + data.userData[who].connectInfo.address;
+                reply += " " + std::to_string(data.userData[who].connectInfo.port);
+                if (i == targetUsers.size() - 1 || div == 0) {
+                    reply += " " + std::to_string(offset) + " " + std::to_string(fileSize);
+                    break;
+                }
+                reply += " " + std::to_string(offset) + " " + std::to_string(offset + div);
+                offset += div;
+            }
+            tcpWrite(fd, reply);
+            fprintf(stderr, "%s\n", reply.c_str());
         }
     }
 

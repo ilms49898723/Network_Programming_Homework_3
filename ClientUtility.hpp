@@ -354,6 +354,10 @@ public:
             return;
         }
         trimNewLine(account);
+        if (nowAccount == account) {
+            printMessage("Failed! To upload file to yourself is not supported", true);
+            return;
+        }
         printf("Filename: ");
         if (fgets(filename, MAXN, stdin) == NULL) {
             printPrevious();
@@ -378,39 +382,19 @@ public:
             printMessage(errMsg, true);
             return;
         }
-        FILE* fp = fopen(filepath.c_str(), "rb");
-        if (!fp) {
-            std::string errMsg = std::string(filename) + ": " + strerror(errno);
-            printMessage(errMsg, true);
-            return;
-        }
-        ConnectData target = connectTo(ConnectInfo(address, port));
-        if (target.fd < 0) {
-            printMessage("Connect Error", true);
-            fclose(fp);
-            return;
-        }
-        info = msgFILEWRITE + " " + filename + " " + std::to_string(fileStat.st_size);
-        tcpWrite(target.fd, info);
-        tcpRead(target.fd, buffer, MAXN);
-        if (std::string(buffer).find(msgFAIL) == 0u) {
-            printMessage(buffer, true);
-            fclose(fp);
-            close(target.fd);
-            return;
-        }
         printf("\nPress ^D to pause and show menu\n\n");
         unsigned long fileSize = fileStat.st_size;
-        unsigned long byteSend = 0;
-        bool enabled = true;
-        printf("\rUploading %s... (%lu/%lu)", filename, byteSend, fileSize);
-        int refreshCounter = 0;
-        while (byteSend < fileSize) {
-            ++refreshCounter;
+        fileValid = true;
+        fileUploadEnabled = true;
+        fileSizeRead = 0u;
+        ConnectInfo conn(address, port);
+        std::thread uploadThread = std::thread(&ClientUtility::uploadFile, this, conn, filename, fileSize);
+        printf("\rUploading %s... (%lu/%lu)", filename, fileSizeRead, fileSize);
+        while (fileSizeRead < fileSize && fileValid) {
             fd_set fdset;
             FD_ZERO(&fdset);
             FD_SET(fileno(stdin), &fdset);
-            timeval tv = tv200us;
+            timeval tv = tv1s;
             int nready = select(fileno(stdin) + 1, &fdset, NULL, NULL, &tv);
             if (nready < 0) {
                 if (errno == EINTR) {
@@ -418,53 +402,42 @@ public:
                 }
                 std::string errMsg = std::string("select: ") + strerror(errno);
                 printMessage(errMsg);
+                fileValid = false;
                 break;
             }
             if (FD_ISSET(fileno(stdin), &fdset)) {
                 char option[MAXN];
                 if (fgets(option, MAXN, stdin) == NULL) {
-                    enabled = false;
+                    fileUploadEnabled = false;
                 }
                 else {
                     trimNewLine(option);
                     toUpperString(option);
                     if (std::string(option) == "R") {
-                        enabled = true;
+                        fileUploadEnabled = true;
                     }
                     else if (std::string(option) == "T") {
+                        fileUploadEnabled = false;
+                        fileValid = false;
                         break;
                     }
                 }
-                printf("\n\n%s...\n", enabled ? "Resumed" : "Paused");
-                if (!enabled) {
+                printf("\n\n%s...\n", fileUploadEnabled ? "Resumed" : "Paused");
+                if (!fileUploadEnabled) {
                     printf("[R]Resume  [T]Terminate:$ ");
                 }
             }
-            if (enabled) {
-                char content[MAXN];
-                int n = fread(content, sizeof(char), MAXN, fp);
-                if (tcpWritePure(target.fd, content, n) <= 0) {
-                    printMessage(msgDISCONNECTED, true);
-                    break;
-                }
-                if (tcpRead(target.fd, content, n) <= 0) {
-                    printMessage(msgDISCONNECTED, true);
-                    break;
-                }
-                byteSend += n;
-                if (refreshCounter > 1000) {
-                    refreshCounter = 0;
-                    printf("\rUploading %s... (%lu/%lu)", filename, byteSend, fileSize);
-                }
+            if (fileUploadEnabled) {
+                printf("\rUploading %s... (%lu/%lu)", filename, fileSizeRead, fileSize);
             }
         }
-        fclose(fp);
-        close(target.fd);
-        if (byteSend == fileSize) {
+        printf("\rUploading %s... (%lu/%lu)", filename, fileSizeRead, fileSize);
+        uploadThread.join();
+        if (fileValid) {
             printMessage("Upload Successfully!", true);
         }
         else {
-            printMessage("Terminated!", true);
+            printMessage("Failed!", true);
         }
     }
 
@@ -530,7 +503,53 @@ public:
             else {
                 std::string filepath = std::string("./Client/") + filename;
                 remove(filepath.c_str());
-                printMessage("Failed", true);
+                printMessage("Failed!", true);
+            }
+        }
+        else {
+            char filename[MAXN];
+            printf("Filename: ");
+            if (fgets(filename, MAXN, stdin) == NULL) {
+                printPrevious();
+                return;
+            }
+            trimNewLine(filename);
+            std::string info = msgFILEINFOREQUEST + " P2P " + filename;
+            tcpWrite(fd, info);
+            char buffer[MAXN];
+            tcpRead(fd, buffer, MAXN);
+            if (std::string(buffer).find(msgFAIL) == 0u) {
+                printMessage(buffer, true);
+                return;
+            }
+            std::istringstream iss(buffer);
+            unsigned long fileSize;
+            std::string address;
+            int port;
+            unsigned long from;
+            unsigned long to;
+            iss >> info >> fileSize;
+            fileValid = true;
+            fileDownloadEnabled = true;
+            fileSizeWritten = 0u;
+            std::vector<std::thread> p2pDownloadThreads;
+            p2pDownloadThreads.push_back(std::thread(&ClientUtility::downloadHandler, this, filename, fileSize));
+            while (iss >> address >> port >> from >> to) {
+                ConnectInfo conn(address, port);
+                p2pDownloadThreads.push_back(
+                        std::thread(&ClientUtility::downloadFile, this, conn, filename, to - from, from));
+            }
+            for (auto& item : p2pDownloadThreads) {
+                item.join();
+            }
+            if (fileValid) {
+                updateFileList();
+                printMessage("Download Successfully", true);
+            }
+            else {
+                std::string filepath = std::string("./Client/") + filename;
+                remove(filepath.c_str());
+                printMessage("Failed!", true);
             }
         }
     }
@@ -605,6 +624,57 @@ private:
     }
 
 private:
+    void uploadFile(const ConnectInfo& conn, const std::string& filename, unsigned long fileSize) {
+        std::string filepath = std::string("./Client/") + filename;
+        FILE* fp = fopen(filepath.c_str(), "rb");
+        if (!fp) {
+            fprintf(stderr, "%s: %s\n", filename.c_str(), strerror(errno));
+            fileValid = false;
+            return;
+        }
+        ConnectData target = connectTo(conn);
+        if (target.fd < 0) {
+            fileValid = false;
+            fprintf(stderr, "Connect failed\n");
+            fclose(fp);
+            return;
+        }
+        std::string info = msgFILEWRITE + " " + filename + " " + std::to_string(fileSize);
+        tcpWrite(target.fd, info);
+        char buffer[MAXN];
+        tcpRead(target.fd, buffer, MAXN);
+        if (std::string(buffer).find(msgFAIL) == 0u) {
+            fprintf(stderr, "%s\n", buffer);
+            fileValid = false;
+            fclose(fp);
+            close(target.fd);
+            return;
+        }
+        unsigned long byteSend = 0;
+        while (byteSend < fileSize && fileValid) {
+            if (fileUploadEnabled) {
+                char content[MAXN];
+                int n = fread(content, sizeof(char), MAXN, fp);
+                if (tcpWritePure(target.fd, content, n) <= 0) {
+                    printMessage(msgDISCONNECTED, true);
+                    break;
+                }
+                if (tcpRead(target.fd, content, n) <= 0) {
+                    printMessage(msgDISCONNECTED, true);
+                    break;
+                }
+                byteSend += n;
+                fileSizeRead += n;
+            }
+        }
+        if (byteSend != fileSize) {
+            fileValid = false;
+        }
+        fclose(fp);
+        close(target.fd);
+    }
+
+private:
     void downloadHandler(const std::string& filename, unsigned long fileSize) {
         printf("\nPress ^D to pause and show menu\n\n");
         printf("\rDownloading %s... (%lu/%lu)", filename.c_str(), fileSizeWritten, fileSize);
@@ -648,6 +718,7 @@ private:
                 printf("\rDownloading %s... (%lu/%lu)", filename.c_str(), fileSizeWritten, fileSize);
             }
         }
+        printf("\rDownloading %s... (%lu/%lu)", filename.c_str(), fileSizeWritten, fileSize);
         if (fileSizeWritten != fileSize) {
             fileValid = false;
         }
@@ -699,7 +770,7 @@ private:
                 byteRecv += n;
                 cacheOffset += n;
                 cacheSize += n;
-                fileSizeWritten += n;
+                addFileSizeWritten(n);
             }
         }
         if (cacheSize > 0u) {
@@ -720,12 +791,18 @@ private:
         FILE* fp = fopen(filepath.c_str(), "wb");
         if (!fp) {
             fprintf(stderr, "%s: %s\n", filename.c_str(), strerror(errno));
+            fileValid = false;
             return -1;
         }
         fseek(fp, offset, SEEK_SET);
         int ret = fwrite(src, sizeof(char), n, fp);
         fclose(fp);
         return ret;
+    }
+
+    void addFileSizeWritten(const unsigned long val) {
+        std::lock_guard<std::mutex> lock(fileSizeWrittenLocker);
+        fileSizeWritten += val;
     }
 
     void setFileDownloadEnabled(const bool enabled) {
@@ -747,10 +824,17 @@ private:
     int terminalCol;
 
 private:
+    bool fileValid;
+
+private:
+    unsigned long fileSizeRead;
+    bool fileUploadEnabled;
+
+private:
     std::mutex fileWriteLocker;
+    std::mutex fileSizeWrittenLocker;
     unsigned long fileSizeWritten;
     bool fileDownloadEnabled;
-    bool fileValid;
 };
 
 #endif // NETWORK_PROGRAMMING_CLIENTUTILITY_HPP_
