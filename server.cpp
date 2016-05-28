@@ -29,6 +29,8 @@ int parseArgument(int argc, const char** argv);
 void serverFunc(const int fd, ConnectInfo connectInfo);
 
 int main(int argc, const char** argv) {
+    setbuf(stdout, NULL);
+    parseArgument(argc, argv);
     lb::setLogEnabled(true);
     lb::threadManageInit();
     int port = parseArgument(argc, argv);
@@ -80,11 +82,13 @@ int main(int argc, const char** argv) {
 int parseArgument(int argc, const char** argv) {
     if (argc != 2) {
         fprintf(stderr, "usage %s <port>\n", argv[0]);
+        lb::joinAll();
         exit(EXIT_FAILURE);
     }
     int port;
     if (sscanf(argv[1], "%d", &port) != 1) {
         fprintf(stderr, "%s: not a valid port number\n", argv[1]);
+        lb::joinAll();
         exit(EXIT_FAILURE);
     }
     return port;

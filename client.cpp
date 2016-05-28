@@ -38,6 +38,7 @@ void p2pServerFunc(const int fd);
 
 int main(int argc, const char** argv) {
     setbuf(stdout, NULL);
+    parseArgument(argc, argv);
     lb::setLogEnabled(false);
     lb::threadManageInit();
     ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws);
@@ -57,6 +58,7 @@ int main(int argc, const char** argv) {
 ConnectInfo parseArgument(const int& argc, const char**& argv) {
     if (argc != 3) {
         fprintf(stderr, "usage %s <server address> <port>\n", argv[0]);
+        lb::joinAll();
         exit(EXIT_FAILURE);
     }
     std::string address;
@@ -64,6 +66,7 @@ ConnectInfo parseArgument(const int& argc, const char**& argv) {
     address = argv[1];
     if (sscanf(argv[2], "%d", &port) != 1) {
         fprintf(stderr, "%s: not a valid port number\n", argv[2]);
+        lb::joinAll();
         exit(EXIT_FAILURE);
     }
     return ConnectInfo(address, port);
