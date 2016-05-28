@@ -50,8 +50,7 @@ struct MessageBuffer {
 };
 
 struct ServerData {
-    std::mutex accountLocker;
-    std::mutex fileListLocker;
+    std::mutex dataLocker;
     std::map<std::string, Account> userData;
     std::map<std::string, FileInfo> fileData;
 };

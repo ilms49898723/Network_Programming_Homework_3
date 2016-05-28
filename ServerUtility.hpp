@@ -39,7 +39,7 @@ public:
     }
 
     void accountUtility(const std::string& msg, ServerData& data) {
-        std::lock_guard<std::mutex> lock(data.accountLocker);
+        std::lock_guard<std::mutex> lock(data.dataLocker);
         if (msg.find(msgREGISTER) == 0u) {
             accountRegister(msg, data);
         }
@@ -66,8 +66,8 @@ public:
         }
     }
 
-    void fileListUtility(const std::string& msg, ServerData& data) {
-        std::lock_guard<std::mutex> lock(data.fileListLocker);
+    void fileUtility(const std::string& msg, ServerData& data) {
+        std::lock_guard<std::mutex> lock(data.dataLocker);
         if (msg.find(msgUPDATEFILELIST) == 0u) {
             fileListUpdate(msg, data);
         }
@@ -77,12 +77,7 @@ public:
         else if (msg.find(msgGETFILELIST) == 0u) {
             fileListGet(msg, data);
         }
-    }
-
-    void utilities(const std::string& msg, ServerData& data) {
-        std::lock_guard<std::mutex> locku(data.accountLocker);
-        std::lock_guard<std::mutex> lockf(data.fileListLocker);
-        if (msg.find(msgFILEINFOREQUEST) == 0u) {
+        else if (msg.find(msgFILEINFOREQUEST) == 0u) {
             fileInfoRequest(msg, data);
         }
     }

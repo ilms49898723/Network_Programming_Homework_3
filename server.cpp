@@ -129,11 +129,9 @@ void serverFunc(const int fd, ConnectInfo connectInfo) {
             }
             else if (command.find(msgUPDATEFILELIST) == 0u ||
                      command.find(msgSHOWFILELIST) == 0u ||
-                     command.find(msgGETFILELIST) == 0u) {
-                serverUtility.fileListUtility(command, serverData);
-            }
-            else if (command.find(msgFILEINFOREQUEST) == 0u) {
-                serverUtility.utilities(command, serverData);
+                     command.find(msgGETFILELIST) == 0u ||
+                     command.find(msgFILEINFOREQUEST) == 0u) {
+                serverUtility.fileUtility(command, serverData);
             }
         }
     }
